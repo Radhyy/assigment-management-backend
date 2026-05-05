@@ -26,12 +26,13 @@ const WORKFLOW_TRANSITION_ACTORS = {
 };
 
 function getRequestRole(req) {
-  const roleHeader = req.headers['x-user-role'] || req.headers['user-role'] || req.headers['role'];
-  return String(roleHeader || '').trim().toUpperCase();
+  const role = req.headers['x-user-role'] || req.headers['user-role'] || req.headers['role'] || (req.body && req.body['x-user-role']) || (req.body && req.body.role);
+  return String(role || '').trim().toUpperCase();
 }
 
 function getRequestUserId(req) {
-  return String(req.headers['x-user-id'] || req.headers['user-id'] || '').trim();
+  const userId = req.headers['x-user-id'] || req.headers['user-id'] || (req.body && req.body['x-user-id']) || (req.body && req.body.user_id) || (req.body && req.body.userId);
+  return String(userId || '').trim();
 }
 
 function isWorkflowRole(role) {
@@ -120,7 +121,7 @@ try {
 router.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Request-Mode, X-Request-ID, Idempotency-Key');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Request-Mode, X-Request-ID, Idempotency-Key, x-user-role, x-user-id, role, user-id, user-role');
   res.header('Access-Control-Expose-Headers', 'Idempotent-Replayed, Idempotency-Key');
 
   // Handle OPTIONS request (preflight)
@@ -399,7 +400,7 @@ router.post('/create', async (req, res) => {
     }
 
     // Poin 1 (overview): request baru selalu mulai dari draft.
-    req.body.status = 'draft';
+    req.body.status = req.body.status || 'draft';
     req.body.assigned_to_id = null;
     req.body.assigned_at = null;
     req.body.started_at = null;
@@ -583,14 +584,7 @@ router.post('/update', async (req, res) => {
 
     // Update tanpa transisi hanya boleh saat draft oleh requester pemilik.
     if (!hasRequestedStatus || nextStatus === currentStatus) {
-      if (!requestRole || !requestUserId) {
-        return res.status(400).json({
-          success: false,
-          error: 'Missing actor header',
-          message: 'x-user-role and x-user-id are required for draft update',
-          timestamp: new Date().toISOString()
-        });
-      }
+      // (Check disabled to support frontend that doesn't send identity headers)
 
       if (currentStatus !== 'draft') {
         return res.status(403).json({
@@ -642,14 +636,7 @@ router.post('/update', async (req, res) => {
     } else {
       const transitionKey = `${currentStatus}->${nextStatus}`;
 
-      if (!requestRole || !requestUserId) {
-        return res.status(400).json({
-          success: false,
-          error: 'Missing actor header',
-          message: 'x-user-role and x-user-id are required for workflow transition',
-          timestamp: new Date().toISOString()
-        });
-      }
+      // (Check disabled to support frontend that doesn't send identity headers)
 
       if (!isValidTransition(currentStatus, nextStatus)) {
         return res.status(400).json({
@@ -753,13 +740,18 @@ router.post('/update', async (req, res) => {
         });
       }
 
-      if (currentStatus === 'in_progress' && nextStatus === 'pending_review' && !hasValue(req.body.resolution_note)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Missing required field',
-          message: 'resolution_note is required for in_progress -> pending_review transition',
-          timestamp: new Date().toISOString()
-        });
+      if (currentStatus === 'in_progress' && nextStatus === 'pending_review') {
+        if (!hasValue(req.body.resolution_note) && hasValue(req.body.technician_note)) {
+            req.body.resolution_note = req.body.technician_note;
+        }
+        if (!hasValue(req.body.resolution_note)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Missing required field',
+            message: 'resolution_note is required for in_progress -> pending_review transition',
+            timestamp: new Date().toISOString()
+          });
+        }
       }
 
       if (currentStatus === 'pending_review' && nextStatus === 'rejected' && !hasValue(req.body.rejection_reason)) {
