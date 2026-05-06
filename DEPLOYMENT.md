@@ -4,7 +4,7 @@ Use these GitHub repository secrets:
 
 - `DEPLOY_SSH_HOST`
 - `DEPLOY_SSH_USER`
-- `DEPLOY_SSH_KEY`
+- `DEPLOY_SSH_PASSWORD`
 - `DEPLOY_PATH`
 - `DEPLOY_SERVICE_NAME` (optional)
 
