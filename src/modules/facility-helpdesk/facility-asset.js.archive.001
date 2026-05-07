@@ -1,125 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const maintenanceReportModel = require('../../models/facility-helpdesk/maintenance-report');
-const db = require('restforgejs/src/utils/db');
-const { uploadImageToS3 } = require('../../utils/s3-upload');
-
-function parseDataUrl(dataUrl) {
-  // data:[<mediatype>][;base64],<data>
-  const match = String(dataUrl || '').match(/^data:(.+?);base64,(.+)$/);
-  if (!match) return null;
-  const mime = match[1];
-  const b64 = match[2];
-  const buffer = Buffer.from(b64, 'base64');
-  return { mime, buffer };
-}
-
-async function uploadDataUrlFieldIfNeeded(fieldValue, prefix) {
-  if (!fieldValue || typeof fieldValue !== 'string') return fieldValue;
-  if (!fieldValue.startsWith('data:')) return fieldValue;
-
-  const parsed = parseDataUrl(fieldValue);
-  if (!parsed) return fieldValue;
-
-  const ext = (parsed.mime.split('/')[1] || 'bin').split('+')[0];
-  const fakeFile = {
-    originalname: `${prefix}-${Date.now()}.${ext}`,
-    buffer: parsed.buffer,
-    mimetype: parsed.mime,
-    size: parsed.buffer.length
-  };
-
-  const publicUrl = await uploadImageToS3(fakeFile);
-  return publicUrl;
-}
-
-const WORKFLOW_ROLES = ['REQUESTER', 'WO_MANAGER', 'TECHNICIAN', 'SITE_MANAGER'];
-const WORKFLOW_TRANSITIONS = {
-  draft: ['submitted'],
-  submitted: ['assigned', 'rejected_by_wom'],
-  rejected_by_wom: [],
-  assigned: ['in_progress'],
-  in_progress: ['pending_review'],
-  pending_review: ['approved', 'rejected'],
-  rejected: ['in_progress'],
-  approved: []
-};
-
-const WORKFLOW_TRANSITION_ACTORS = {
-  'draft->submitted': ['REQUESTER'],
-  'submitted->assigned': ['WO_MANAGER'],
-  'submitted->rejected_by_wom': ['WO_MANAGER'],
-  'assigned->in_progress': ['TECHNICIAN'],
-  'in_progress->pending_review': ['TECHNICIAN'],
-  'pending_review->approved': ['SITE_MANAGER'],
-  'pending_review->rejected': ['SITE_MANAGER'],
-  'rejected->in_progress': ['TECHNICIAN']
-};
-
-function getRequestRole(req) {
-  const role = req.headers['x-user-role'] || req.headers['user-role'] || req.headers['role'] || (req.body && req.body['x-user-role']) || (req.body && req.body.role);
-  return String(role || '').trim().toUpperCase();
-}
-
-function getRequestUserId(req) {
-  const userId = req.headers['x-user-id'] || req.headers['user-id'] || (req.body && req.body['x-user-id']) || (req.body && req.body.user_id) || (req.body && req.body.userId);
-  return String(userId || '').trim();
-}
-
-function isWorkflowRole(role) {
-  return WORKFLOW_ROLES.includes(role);
-}
-
-function normalizeStatus(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function isValidTransition(fromStatus, toStatus) {
-  const nextStatuses = WORKFLOW_TRANSITIONS[fromStatus] || [];
-  return nextStatuses.includes(toStatus);
-}
-
-function canActorRunTransition(role, fromStatus, toStatus) {
-  const key = `${fromStatus}->${toStatus}`;
-  const allowedActors = WORKFLOW_TRANSITION_ACTORS[key] || [];
-  return allowedActors.includes(role);
-}
-
-function hasValue(value) {
-  return value !== undefined && value !== null && String(value).trim() !== '';
-}
-
-function hasOnlyAllowedFields(payload, allowedFields) {
-  const allowed = new Set(allowedFields);
-  return Object.keys(payload || {}).every((key) => allowed.has(key));
-}
-
-async function resolveReporterId(req) {
-  const requestUserId = getRequestUserId(req);
-  const bodyReporterId = req.body && req.body.reporter_id ? String(req.body.reporter_id).trim() : '';
-
-  const candidates = [bodyReporterId, requestUserId].filter(Boolean);
-  for (const candidate of candidates) {
-    const result = await db.executeQuery(
-      'SELECT user_id FROM app_user WHERE user_id = $1 AND role = $2 LIMIT 1',
-      [candidate, 'REQUESTER']
-    );
-    if (result && result.length > 0) {
-      return result[0].user_id;
-    }
-  }
-
-  const fallback = await db.executeQuery(
-    'SELECT user_id FROM app_user WHERE role = $1 AND is_active = TRUE ORDER BY created_at ASC LIMIT 1',
-    ['REQUESTER']
-  );
-
-  if (fallback && fallback.length > 0) {
-    return fallback[0].user_id;
-  }
-
-  throw new Error('No valid requester user found');
-}
+const facilityAssetModel = require('../../models/facility-helpdesk/facility-asset');
 
 
 // Component Engine untuk event lifecycle (optional)
@@ -135,8 +16,8 @@ try {
 
     // Load component configuration dari payload yang sedang digunakan
     const componentConfig = {
-      tableName: 'maintenance_report',
-      fieldName: ["report_id","report_number","reporter_id","category_id","facility_id","title","location_floor","location_room","location_detail","description","urgency","status","assigned_to_id","admin_note","technician_note","resolution_note","rejection_reason","photo_before_url","photo_after_url","reported_at","assigned_at","started_at","solved_at","closed_at","created_at","updated_at"],
+      tableName: 'facility_asset',
+      fieldName: ["facility_id","facility_code","facility_name","facility_type","floor_level","room_name","location_detail","brand","model","serial_number","condition_status","is_active","notes","created_at","updated_at"],
       exportQuery: null,
       columnFormats: null,
       fieldLabels: null,
@@ -148,30 +29,30 @@ try {
 
     componentEngine.loadConfigurationFromObject(componentConfig).then(result => {
       if (result.success) {
-        console.log(`Component configuration loaded for facility-helpdesk/maintenance-report: ${result.componentsLoaded} components`);
+        console.log(`Component configuration loaded for facility-helpdesk/facility-asset: ${result.componentsLoaded} components`);
       }
     }).catch(err => {
-      console.error(`Failed to load component configuration for facility-helpdesk/maintenance-report:`, err.message);
+      console.error(`Failed to load component configuration for facility-helpdesk/facility-asset:`, err.message);
     });
   } else {
-    console.log(`No components defined in payload for facility-helpdesk/maintenance-report, running without events`);
+    console.log(`No components defined in payload for facility-helpdesk/facility-asset, running without events`);
   }
 } catch (e) {
   if (hasComponents) {
     // Components dikonfigurasi tapi engine gagal load — ini error, bukan optional
-    console.error(`CRITICAL: Component engine failed to load for facility-helpdesk/maintenance-report but components are configured:`, e.message);
+    console.error(`CRITICAL: Component engine failed to load for facility-helpdesk/facility-asset but components are configured:`, e.message);
     throw e;
   }
   // Jika tidak ada components, silent skip wajar
-  console.log(`No component engine required for facility-helpdesk/maintenance-report, running without events`);
+  console.log(`No component engine required for facility-helpdesk/facility-asset, running without events`);
 }
 
 /**
- * MaintenanceReport Submodule - Auto-generated on 2026-04-15 01:43:40
+ * FacilityAsset Submodule - Auto-generated on 2026-04-15 01:43:38
  *
- * Endpoints untuk maintenance-report dengan actions: datatables, create, update, delete, first, lookup, read
- * Table: maintenance_report
- * Fields: 25 fields
+ * Endpoints untuk facility-asset dengan actions: datatables, create, update, delete, first, lookup, read
+ * Table: facility_asset
+ * Fields: 15 fields
  * Database: PostgreSQL
  */
 
@@ -179,7 +60,7 @@ try {
 router.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Request-Mode, X-Request-ID, Idempotency-Key, x-user-role, x-user-id, role, user-id, user-role');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Request-Mode, X-Request-ID, Idempotency-Key');
   res.header('Access-Control-Expose-Headers', 'Idempotent-Replayed, Idempotency-Key');
 
   // Handle OPTIONS request (preflight)
@@ -207,7 +88,7 @@ router.use((req, res, next) => {
           error: 'Missing payload',
           message: 'Payload cannot be empty',
           timestamp: new Date().toISOString(),
-          endpoint: '/api/facility-helpdesk/maintenance-report' + req.path
+          endpoint: '/api/facility-helpdesk/facility-asset' + req.path
         });
       }
 
@@ -261,9 +142,9 @@ router.use((req, res, next) => {
       // Endpoint add membutuhkan data yang valid
       if (endpoint === 'add') {
         // Filter field yang memiliki autoGenerate dari required check
-        const autoGenerateFields = ["report_id"];
+        const autoGenerateFields = ["facility_id"];
 
-        const requiredFields = ['report_id']
+        const requiredFields = ['facility_id']
           .filter(field => !autoGenerateFields.includes(field));
 
         const missingFields = requiredFields.filter(field => !req.body[field] || req.body[field] === '');
@@ -280,7 +161,7 @@ router.use((req, res, next) => {
 
       // Endpoint update membutuhkan primary key
       if (endpoint === 'update') {
-        const primaryKey = 'report_id';
+        const primaryKey = 'facility_id';
         if (!req.body[primaryKey]) {
           return res.status(400).json({
             success: false,
@@ -306,10 +187,10 @@ router.use((req, res, next) => {
 });
 
 
-// POST /api/facility-helpdesk/maintenance-report/datatables - Data untuk DataTables
+// POST /api/facility-helpdesk/facility-asset/datatables - Data untuk DataTables
 router.post('/datatables', async (req, res) => {
   try {
-    // req.log.debug('Request body maintenance-report/datatables:', JSON.stringify(req.body, null, 2));
+    // req.log.debug('Request body facility-asset/datatables:', JSON.stringify(req.body, null, 2));
 
     // Extract parameters dari request
     const options = {
@@ -377,7 +258,7 @@ router.post('/datatables', async (req, res) => {
     }
 
     // Gunakan model untuk mendapatkan data
-    const result = await maintenanceReportModel.getDatatables(options);
+    const result = await facilityAssetModel.getDatatables(options);
 
     // Menambahkan nomor baris untuk DataTables jika diperlukan
     if (result.data && Array.isArray(result.data)) {
@@ -390,7 +271,7 @@ router.post('/datatables', async (req, res) => {
     // Add metadata untuk debugging (development only)
     if (process.env.NODE_ENV === 'development') {
       result._metadata = {
-        endpoint: 'maintenance-report',
+        endpoint: 'facility-asset',
         options: options,
         timestamp: new Date().toISOString()
       };
@@ -398,12 +279,12 @@ router.post('/datatables', async (req, res) => {
 
     return res.json(result);
   } catch (error) {
-    console.error('Error in maintenance-report datatables:', error);
+    console.error('Error in facility-asset datatables:', error);
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
       error: statusCode === 400 ? 'Bad Request' : 'Internal Server Error',
-      message: statusCode === 400 ? error.message : 'An error occurred while fetching maintenance-report data',
+      message: statusCode === 400 ? error.message : 'An error occurred while fetching facility-asset data',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       timestamp: new Date().toISOString()
     });
@@ -411,28 +292,10 @@ router.post('/datatables', async (req, res) => {
 });
 
 
-// POST /api/facility-helpdesk/maintenance-report/create - Menambahkan data maintenance-report baru
+// POST /api/facility-helpdesk/facility-asset/create - Menambahkan data facility-asset baru
 router.post('/create', async (req, res) => {
   try {
-    // req.log.debug('Request body maintenance-report/create:', JSON.stringify(req.body, null, 2));
-
-    const requestRole = getRequestRole(req);
-    if (requestRole && !isWorkflowRole(requestRole)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: 'Role is not part of workflow actors',
-        timestamp: new Date().toISOString()
-      });
-    }
-    if (requestRole && requestRole !== 'REQUESTER') {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: 'Only requester can create a work request',
-        timestamp: new Date().toISOString()
-      });
-    }
+    // req.log.debug('Request body facility-asset/create:', JSON.stringify(req.body, null, 2));
 
     // Validasi payload
     if (!req.body || Object.keys(req.body).length === 0) {
@@ -444,36 +307,12 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    req.body.reporter_id = await resolveReporterId(req);
-
-    // Poin 1 (overview): request baru selalu mulai dari draft.
-    req.body.status = req.body.status || 'draft';
-    req.body.assigned_to_id = null;
-    req.body.assigned_at = null;
-    req.body.started_at = null;
-    req.body.solved_at = null;
-    req.body.closed_at = null;
-
     // Get correlation ID from header (optional)
     const correlationId = req.headers['x-correlation-id'] || null;
 
-    // BEFORE validation: handle data URLs for photos (convert+upload to S3)
-    // This must be done BEFORE validation to avoid maxLength issues with large Data URLs
-    try {
-      if (req.body.photo_after_url && typeof req.body.photo_after_url === 'string' && req.body.photo_after_url.startsWith('data:')) {
-        req.body.photo_after_url = await uploadDataUrlFieldIfNeeded(req.body.photo_after_url, 'maintenance-photo-after');
-      }
-      if (req.body.photo_before_url && typeof req.body.photo_before_url === 'string' && req.body.photo_before_url.startsWith('data:')) {
-        req.body.photo_before_url = await uploadDataUrlFieldIfNeeded(req.body.photo_before_url, 'maintenance-photo-before');
-      }
-    } catch (e) {
-      console.error('Failed to upload inline photo data to S3:', e.message || e);
-      return res.status(500).json({ success: false, error: 'Upload failed', message: 'Failed to upload photo to storage' });
-    }
-
     // Validasi data dengan model jika tersedia
-    if (typeof maintenanceReportModel.validateData === 'function') {
-      const validation = await maintenanceReportModel.validateData(req.body, 'insert');
+    if (typeof facilityAssetModel.validateData === 'function') {
+      const validation = await facilityAssetModel.validateData(req.body, 'insert');
       if (!validation.isValid) {
         return res.status(400).json({
           success: false,
@@ -503,7 +342,7 @@ router.post('/create', async (req, res) => {
         const eventContext = {
           componentEngine: componentEngine,
           ContextBuilder: ContextBuilder,
-          tableName: 'maintenance_report',
+          tableName: 'facility_asset',
           additionalContext: {
             user_id: req.headers['user-id'] || req.headers['x-user-id'] || 'system',
             options: req.bodyOptions || {},
@@ -511,7 +350,7 @@ router.post('/create', async (req, res) => {
           }
         };
 
-        responseData = await maintenanceReportModel.addData(req.body, eventContext);
+        responseData = await facilityAssetModel.addData(req.body, eventContext);
         newData = responseData;
 
         console.log('[INTEGRATED TRANSACTION] INSERT completed successfully with events');
@@ -522,7 +361,7 @@ router.post('/create', async (req, res) => {
     } else {
       // Fallback: gunakan mode lama tanpa events (tetap propagasi requestId untuk Live Sync)
       try {
-        responseData = await maintenanceReportModel.addData(req.body, { additionalContext: { requestId: req.id || null } });
+        responseData = await facilityAssetModel.addData(req.body, { additionalContext: { requestId: req.id || null } });
         newData = responseData;
         console.log('[FALLBACK] INSERT completed without events');
       } catch (error) {
@@ -532,17 +371,17 @@ router.post('/create', async (req, res) => {
     }
 
     // Log successful operation
-    console.log(`maintenance-report data added successfully: ${responseData.report_id || 'new record'}`);
+    console.log(`facility-asset data added successfully: ${responseData.facility_id || 'new record'}`);
 
     // Kirim response
     return res.status(201).json({
       success: true,
-      message: 'maintenance-report data successfully added',
+      message: 'facility-asset data successfully added',
       data: responseData,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error saat menambahkan data maintenance-report:', error);
+    console.error('Error saat menambahkan data facility-asset:', error);
 
     // Handle specific error types
     if (error.code === '23505') { // PostgreSQL unique violation
@@ -566,7 +405,7 @@ router.post('/create', async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Internal Server Error',
-      message: 'An error occurred while adding maintenance-report data',
+      message: 'An error occurred while adding facility-asset data',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       timestamp: new Date().toISOString()
     });
@@ -574,21 +413,10 @@ router.post('/create', async (req, res) => {
 });
 
 
-// POST /api/facility-helpdesk/maintenance-report/update - Mengupdate data maintenance-report
+// POST /api/facility-helpdesk/facility-asset/update - Mengupdate data facility-asset
 router.post('/update', async (req, res) => {
   try {
-    // req.log.debug('Request body maintenance-report/update:', JSON.stringify(req.body, null, 2));
-
-    const requestRole = getRequestRole(req);
-    const requestUserId = getRequestUserId(req);
-    if (requestRole && !isWorkflowRole(requestRole)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: 'Role is not part of workflow actors',
-        timestamp: new Date().toISOString()
-      });
-    }
+    // req.log.debug('Request body facility-asset/update:', JSON.stringify(req.body, null, 2));
 
     // Validasi payload
     if (!req.body || Object.keys(req.body).length === 0) {
@@ -604,7 +432,7 @@ router.post('/update', async (req, res) => {
     const correlationId = req.headers['x-correlation-id'] || null;
 
     // Validasi primary key
-    const primaryKey = 'report_id';
+    const primaryKey = 'facility_id';
     if (!req.body[primaryKey]) {
       return res.status(400).json({
         success: false,
@@ -614,262 +442,13 @@ router.post('/update', async (req, res) => {
       });
     }
 
-    const existingData = await maintenanceReportModel.getData({
-      where: [{ key: primaryKey, value: req.body[primaryKey] }]
-    });
-    if (!existingData.success || !existingData.data || existingData.data.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Data not found',
-        message: 'maintenance-report data not found',
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    const oldData = existingData.data[0];
-    const currentStatus = normalizeStatus(oldData.status);
-    const hasRequestedStatus = Object.prototype.hasOwnProperty.call(req.body, 'status');
-    const nextStatus = hasRequestedStatus ? normalizeStatus(req.body.status) : currentStatus;
-
-    const immutableAfterDraftFields = ['report_number', 'reporter_id', 'reported_at'];
-    for (const field of immutableAfterDraftFields) {
-      if (Object.prototype.hasOwnProperty.call(req.body, field) && currentStatus !== 'draft') {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid update',
-          message: `${field} cannot be changed after draft status`,
-          timestamp: new Date().toISOString()
-        });
-      }
-    }
-
-    // Update tanpa transisi hanya boleh saat draft oleh requester pemilik.
-    if (!hasRequestedStatus || nextStatus === currentStatus) {
-      // (Check disabled to support frontend that doesn't send identity headers)
-
-      if (currentStatus !== 'draft') {
-        return res.status(403).json({
-          success: false,
-          error: 'Forbidden',
-          message: 'Update without status transition is only allowed in draft',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (requestRole && requestRole !== 'REQUESTER') {
-        return res.status(403).json({
-          success: false,
-          error: 'Forbidden',
-          message: 'Only requester can edit draft work request',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (requestUserId && String(oldData.reporter_id || '') !== requestUserId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Forbidden',
-          message: 'Requester can only edit own draft work request',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (!hasOnlyAllowedFields(req.body, [
-        'report_id',
-        'status',
-        'category_id',
-        'facility_id',
-        'title',
-        'location_floor',
-        'location_room',
-        'location_detail',
-        'description',
-        'urgency',
-        'photo_before_url'
-      ])) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid payload',
-          message: 'Draft update only allows requester editable fields',
-          timestamp: new Date().toISOString()
-        });
-      }
-    } else {
-      const transitionKey = `${currentStatus}->${nextStatus}`;
-
-      // (Check disabled to support frontend that doesn't send identity headers)
-
-      if (!isValidTransition(currentStatus, nextStatus)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid transition',
-          message: `Transition ${currentStatus} -> ${nextStatus} is not allowed`,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (requestRole && !canActorRunTransition(requestRole, currentStatus, nextStatus)) {
-        return res.status(403).json({
-          success: false,
-          error: 'Forbidden',
-          message: `Role ${requestRole} cannot perform transition ${currentStatus} -> ${nextStatus}`,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (transitionKey !== 'submitted->assigned' && Object.prototype.hasOwnProperty.call(req.body, 'assigned_to_id')) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid payload',
-          message: 'assigned_to_id can only be changed during submitted -> assigned transition',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (requestRole === 'TECHNICIAN' && requestUserId && String(oldData.assigned_to_id || '') !== requestUserId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Forbidden',
-          message: 'Only assigned technician can process this work request',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (currentStatus === 'submitted' && nextStatus === 'assigned' && !req.body.assigned_to_id) {
-        return res.status(400).json({
-          success: false,
-          error: 'Missing required field',
-          message: 'assigned_to_id is required for submitted -> assigned transition',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (requestRole === 'WO_MANAGER' && !hasOnlyAllowedFields(req.body, [
-        'report_id',
-        'status',
-        'assigned_to_id',
-        'admin_note',
-        'rejection_reason',
-        'assigned_at'
-      ])) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid payload',
-          message: 'WO_MANAGER can only update assignment and decision fields',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (requestRole === 'TECHNICIAN' && !hasOnlyAllowedFields(req.body, [
-        'report_id',
-        'status',
-        'technician_note',
-        'resolution_note',
-        'photo_after_url',
-        'started_at',
-        'solved_at'
-      ])) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid payload',
-          message: 'TECHNICIAN can only update technician work progress fields',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (requestRole === 'SITE_MANAGER' && !hasOnlyAllowedFields(req.body, [
-        'report_id',
-        'status',
-        'rejection_reason',
-        'closed_at',
-        'admin_note'
-      ])) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid payload',
-          message: 'SITE_MANAGER can only update review decision fields',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (currentStatus === 'submitted' && nextStatus === 'rejected_by_wom' && !hasValue(req.body.rejection_reason)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Missing required field',
-          message: 'rejection_reason is required for submitted -> rejected_by_wom transition',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (currentStatus === 'in_progress' && nextStatus === 'pending_review') {
-        if (!hasValue(req.body.resolution_note) && hasValue(req.body.technician_note)) {
-            req.body.resolution_note = req.body.technician_note;
-        }
-        if (!hasValue(req.body.resolution_note)) {
-          return res.status(400).json({
-            success: false,
-            error: 'Missing required field',
-            message: 'resolution_note is required for in_progress -> pending_review transition',
-            timestamp: new Date().toISOString()
-          });
-        }
-      }
-
-      if (currentStatus === 'pending_review' && nextStatus === 'rejected' && !hasValue(req.body.rejection_reason)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Missing required field',
-          message: 'rejection_reason is required for pending_review -> rejected transition',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      if (currentStatus === 'submitted' && nextStatus === 'assigned' && !req.body.assigned_at) {
-        req.body.assigned_at = new Date().toISOString();
-      }
-      if (currentStatus === 'submitted' && nextStatus === 'rejected_by_wom') {
-        req.body.assigned_to_id = null;
-        req.body.assigned_at = null;
-        req.body.started_at = null;
-        req.body.solved_at = null;
-        req.body.closed_at = null;
-      }
-      if ((currentStatus === 'assigned' && nextStatus === 'in_progress') || (currentStatus === 'rejected' && nextStatus === 'in_progress')) {
-        if (!req.body.started_at) {
-          req.body.started_at = new Date().toISOString();
-        }
-        if (!hasValue(req.body.technician_note)) {
-          req.body.technician_note = oldData.technician_note || 'Work order accepted by technician';
-        }
-      }
-      if (currentStatus === 'in_progress' && nextStatus === 'pending_review' && !req.body.solved_at) {
-        req.body.solved_at = new Date().toISOString();
-      }
-      if (currentStatus === 'pending_review' && nextStatus === 'approved' && !req.body.closed_at) {
-        req.body.closed_at = new Date().toISOString();
-      }
-    }
-
-    // Normalisasi status sebelum validasi model.
-    req.body.status = nextStatus;
-
-    // BEFORE validation: handle data URLs for photos (convert+upload to S3)
-    // This must be done BEFORE validation to avoid maxLength issues with large Data URLs
-    try {
-      if (req.body.photo_after_url && typeof req.body.photo_after_url === 'string' && req.body.photo_after_url.startsWith('data:')) {
-        req.body.photo_after_url = await uploadDataUrlFieldIfNeeded(req.body.photo_after_url, 'maintenance-photo-after');
-      }
-      if (req.body.photo_before_url && typeof req.body.photo_before_url === 'string' && req.body.photo_before_url.startsWith('data:')) {
-        req.body.photo_before_url = await uploadDataUrlFieldIfNeeded(req.body.photo_before_url, 'maintenance-photo-before');
-      }
-    } catch (e) {
-      console.error('Failed to upload inline photo data to S3:', e.message || e);
-      return res.status(500).json({ success: false, error: 'Upload failed', message: 'Failed to upload photo to storage' });
-    }
+    // Cek apakah primary key adalah UUID yang valid (jika primary key adalah 'id')
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const isValidUUID = primaryKey === 'id' && uuidRegex.test(req.body[primaryKey]);
 
     // Validasi data dengan model jika tersedia
-    if (typeof maintenanceReportModel.validateData === 'function') {
-      const validation = await maintenanceReportModel.validateData(req.body, 'update');
+    if (typeof facilityAssetModel.validateData === 'function') {
+      const validation = await facilityAssetModel.validateData(req.body, 'update');
       if (!validation.isValid) {
         return res.status(400).json({
           success: false,
@@ -885,6 +464,7 @@ router.post('/update', async (req, res) => {
     }
 
     // Event lifecycle variables
+    let oldData = null;
     let newData = null;
     const requestData = req.body;
     let responseData = null;
@@ -898,7 +478,7 @@ router.post('/update', async (req, res) => {
         const eventContext = {
           componentEngine: componentEngine,
           ContextBuilder: ContextBuilder,
-          tableName: 'maintenance_report',
+          tableName: 'facility_asset',
           additionalContext: {
             user_id: req.headers['user-id'] || req.headers['x-user-id'] || 'system',
             options: req.bodyOptions || {},
@@ -906,7 +486,7 @@ router.post('/update', async (req, res) => {
           }
         };
 
-        responseData = await maintenanceReportModel.updateData(req.body, eventContext);
+        responseData = await facilityAssetModel.updateData(req.body, eventContext);
         newData = responseData;
 
         console.log('[INTEGRATED TRANSACTION] UPDATE completed successfully with events');
@@ -917,7 +497,7 @@ router.post('/update', async (req, res) => {
     } else {
       // Fallback: gunakan mode lama tanpa events (tetap propagasi requestId untuk Live Sync)
       try {
-        responseData = await maintenanceReportModel.updateData(req.body, { additionalContext: { requestId: req.id || null } });
+        responseData = await facilityAssetModel.updateData(req.body, { additionalContext: { requestId: req.id || null } });
         newData = responseData;
         console.log('[FALLBACK] UPDATE completed without events');
       } catch (error) {
@@ -927,24 +507,24 @@ router.post('/update', async (req, res) => {
     }
 
     // Log successful operation
-    console.log(`maintenance-report data updated successfully: ${primaryKey}=${req.body[primaryKey]}`);
+    console.log(`facility-asset data updated successfully: ${primaryKey}=${req.body[primaryKey]}`);
 
     // Kirim response
     return res.status(200).json({
       success: true,
-      message: 'maintenance-report data successfully updated',
+      message: 'facility-asset data successfully updated',
       data: responseData,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error saat mengupdate data maintenance-report:', error);
+    console.error('Error saat mengupdate data facility-asset:', error);
 
     // Handle khusus untuk error "Data tidak ditemukan"
     if (error.message === 'Data tidak ditemukan' || error.message.includes('not found')) {
       return res.status(404).json({
         success: false,
         error: 'Data not found',
-        message: 'maintenance-report data not found',
+        message: 'facility-asset data not found',
         timestamp: new Date().toISOString()
       });
     }
@@ -962,7 +542,7 @@ router.post('/update', async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Internal Server Error',
-      message: 'An error occurred while updating maintenance-report data',
+      message: 'An error occurred while updating facility-asset data',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       timestamp: new Date().toISOString()
     });
@@ -970,29 +550,10 @@ router.post('/update', async (req, res) => {
 });
 
 
-// POST /api/facility-helpdesk/maintenance-report/delete - Menghapus data maintenance-report
+// POST /api/facility-helpdesk/facility-asset/delete - Menghapus data facility-asset
 router.post('/delete', async (req, res) => {
   try {
-    // req.log.debug('Request body maintenance-report/delete:', JSON.stringify(req.body, null, 2));
-
-    const requestRole = getRequestRole(req);
-    const requestUserId = getRequestUserId(req);
-    if (requestRole && !isWorkflowRole(requestRole)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: 'Role is not part of workflow actors',
-        timestamp: new Date().toISOString()
-      });
-    }
-    if (requestRole && requestRole !== 'REQUESTER') {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: 'Only requester can delete a work request',
-        timestamp: new Date().toISOString()
-      });
-    }
+    // req.log.debug('Request body facility-asset/delete:', JSON.stringify(req.body, null, 2));
 
     // Validasi request body
     if (!req.body || Object.keys(req.body).length === 0) {
@@ -1046,7 +607,7 @@ router.post('/delete', async (req, res) => {
     if (req.body.where && Array.isArray(req.body.where) && req.body.where.length > 0) {
       const firstCondition = req.body.where[0];
       try {
-        const existingData = await maintenanceReportModel.getData({
+        const existingData = await facilityAssetModel.getData({
           where: [{ key: firstCondition.key, value: firstCondition.value }]
         });
 
@@ -1054,31 +615,13 @@ router.post('/delete', async (req, res) => {
           return res.status(404).json({
             success: false,
             error: 'Data not found',
-            message: 'maintenance-report data not found',
+            message: 'facility-asset data not found',
             timestamp: new Date().toISOString()
           });
         }
 
         // Simpan data untuk event lifecycle dan debug
         oldData = existingData.data[0];
-
-        // Poin 1-2: delete hanya untuk draft milik requester.
-        if (String(oldData.status || '').toLowerCase() !== 'draft') {
-          return res.status(403).json({
-            success: false,
-            error: 'Forbidden',
-            message: 'Only draft work request can be deleted',
-            timestamp: new Date().toISOString()
-          });
-        }
-        if (requestUserId && String(oldData.reporter_id || '') !== requestUserId) {
-          return res.status(403).json({
-            success: false,
-            error: 'Forbidden',
-            message: 'Requester can only delete own draft work request',
-            timestamp: new Date().toISOString()
-          });
-        }
 
       } catch (checkError) {
         return res.status(500).json({
@@ -1100,7 +643,7 @@ router.post('/delete', async (req, res) => {
         const eventContext = {
           componentEngine: componentEngine,
           ContextBuilder: ContextBuilder,
-          tableName: 'maintenance_report',
+          tableName: 'facility_asset',
           additionalContext: {
             user_id: req.headers['user-id'] || req.headers['x-user-id'] || 'system',
             options: req.bodyOptions || {},
@@ -1108,7 +651,7 @@ router.post('/delete', async (req, res) => {
           }
         };
 
-        responseData = await maintenanceReportModel.deleteData(req.body, eventContext);
+        responseData = await facilityAssetModel.deleteData(req.body, eventContext);
 
         console.log('[INTEGRATED TRANSACTION] DELETE completed successfully with events');
       } catch (error) {
@@ -1118,7 +661,7 @@ router.post('/delete', async (req, res) => {
     } else {
       // Fallback: gunakan mode lama tanpa events (tetap propagasi requestId untuk Live Sync)
       try {
-        responseData = await maintenanceReportModel.deleteData(req.body, { additionalContext: { requestId: req.id || null } });
+        responseData = await facilityAssetModel.deleteData(req.body, { additionalContext: { requestId: req.id || null } });
         console.log('[FALLBACK] DELETE completed without events');
       } catch (error) {
         console.error('[FALLBACK] DELETE failed:', error.message);
@@ -1127,14 +670,14 @@ router.post('/delete', async (req, res) => {
     }
 
     // Log successful operation
-    console.log(`maintenance-report data deleted successfully`);
+    console.log(`facility-asset data deleted successfully`);
 
     return res.json({
       ...responseData,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error saat menghapus data maintenance-report:', error);
+    console.error('Error saat menghapus data facility-asset:', error);
 
     // Handle foreign key constraint errors
     if (error.code === '23503') { // PostgreSQL foreign key violation
@@ -1149,7 +692,7 @@ router.post('/delete', async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Internal Server Error',
-      message: 'An error occurred while deleting maintenance-report data',
+      message: 'An error occurred while deleting facility-asset data',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       timestamp: new Date().toISOString()
     });
@@ -1157,10 +700,10 @@ router.post('/delete', async (req, res) => {
 });
 
 
-// POST /api/facility-helpdesk/maintenance-report/first - Mendapatkan data maintenance-report berdasarkan kriteria
+// POST /api/facility-helpdesk/facility-asset/first - Mendapatkan data facility-asset berdasarkan kriteria
 router.post('/first', async (req, res) => {
   try {
-    // req.log.debug('Request body maintenance-report/first:', JSON.stringify(req.body, null, 2));
+    // req.log.debug('Request body facility-asset/first:', JSON.stringify(req.body, null, 2));
 
     // Validasi request body
     if (!req.body || Object.keys(req.body).length === 0) {
@@ -1184,7 +727,7 @@ router.post('/first', async (req, res) => {
         error: 'Missing required field',
         message: 'Property where is required as {key, value} object',
         example: {
-          "where": { "key": "report_id", "value": "your-id-value" },
+          "where": { "key": "facility_id", "value": "your-id-value" },
           "select": ["field1", "field2"]
         },
         timestamp: new Date().toISOString()
@@ -1198,7 +741,7 @@ router.post('/first', async (req, res) => {
         error: 'Invalid where format',
         message: 'Where key and value are required',
         example: {
-          "where": { "key": "report_id", "value": "your-id-value" }
+          "where": { "key": "facility_id", "value": "your-id-value" }
         },
         timestamp: new Date().toISOString()
       });
@@ -1215,7 +758,7 @@ router.post('/first', async (req, res) => {
     }
 
     // Validasi where.key ada di validFields
-    const validFields = ["report_id","report_number","reporter_id","category_id","facility_id","title","location_floor","location_room","location_detail","description","urgency","status","assigned_to_id","admin_note","technician_note","resolution_note","rejection_reason","photo_before_url","photo_after_url","reported_at","assigned_at","started_at","solved_at","closed_at","created_at","updated_at"];
+    const validFields = ["facility_id","facility_code","facility_name","facility_type","floor_level","room_name","location_detail","brand","model","serial_number","condition_status","is_active","notes","created_at","updated_at"];
     if (!validFields.includes(req.body.where.key)) {
       return res.status(400).json({
         success: false,
@@ -1246,12 +789,12 @@ router.post('/first', async (req, res) => {
       where: [{ key: req.body.where.key, value: req.body.where.value }],
       select: req.body.select
     };
-    const result = await maintenanceReportModel.getData(getPayload);
+    const result = await facilityAssetModel.getData(getPayload);
 
     // Add metadata untuk debugging (development only)
     if (process.env.NODE_ENV === 'development' && result.success) {
       result._metadata = {
-        endpoint: 'maintenance-report',
+        endpoint: 'facility-asset',
         query: req.body,
         resultCount: result.data ? result.data.length : 0,
         timestamp: new Date().toISOString()
@@ -1263,11 +806,11 @@ router.post('/first', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error saat mendapatkan data maintenance-report:', error);
+    console.error('Error saat mendapatkan data facility-asset:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal Server Error',
-      message: 'An error occurred while fetching maintenance-report data',
+      message: 'An error occurred while fetching facility-asset data',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       timestamp: new Date().toISOString()
     });
@@ -1275,7 +818,7 @@ router.post('/first', async (req, res) => {
 });
 
 
-// GET /api/facility-helpdesk/maintenance-report/lookup - Pencarian maintenance-report untuk dropdown (dynamic)
+// GET /api/facility-helpdesk/facility-asset/lookup - Pencarian facility-asset untuk dropdown (dynamic)
 router.get('/lookup', async (req, res) => {
   try {
     // Validasi X-Request-Mode header
@@ -1317,10 +860,10 @@ router.get('/lookup', async (req, res) => {
       });
     }
 
-    console.log(`maintenance-report lookup request: search=${search}, filters=`, extraFilters);
+    console.log(`facility-asset lookup request: search=${search}, filters=`, extraFilters);
 
     // Gunakan model untuk lookup data dengan filters tambahan
-    const list = await maintenanceReportModel.getLookupDataDynamic(search, extraFilters);
+    const list = await facilityAssetModel.getLookupDataDynamic(search, extraFilters);
 
     console.log(`Lookup results: ${list.length} records found`);
     return res.json({
@@ -1331,18 +874,18 @@ router.get('/lookup', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error in maintenance-report lookup:', error);
+    console.error('Error in facility-asset lookup:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal Server Error',
-      message: 'An error occurred while looking up maintenance-report data',
+      message: 'An error occurred while looking up facility-asset data',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       timestamp: new Date().toISOString()
     });
   }
 });
 
-// POST /api/facility-helpdesk/maintenance-report/lookup - Mendapatkan data maintenance-report untuk lookup dengan filtering
+// POST /api/facility-helpdesk/facility-asset/lookup - Mendapatkan data facility-asset untuk lookup dengan filtering
 router.post('/lookup', async (req, res) => {
   try {
     // Validasi X-Request-Mode header
@@ -1362,10 +905,10 @@ router.post('/lookup', async (req, res) => {
     // Validasi payload
     if (!req.body) {
       // Support untuk fieldNameLookup config
-      const lookupConfig = {"idField":"report_id","textField":"report_number||' - '||title as display_text","hasCustomText":true,"searchFields":["report_number","title"]};
+      const lookupConfig = {"idField":"facility_id","textField":"facility_code||' - '||facility_name as display_text","hasCustomText":true,"searchFields":["facility_code","facility_name"]};
       const defaultSelect = lookupConfig && lookupConfig.hasCustomText
         ? ["id", lookupConfig.textField]
-        : ["id", "report_id"];
+        : ["id", "facility_id"];
 
       return res.status(400).json({
         success: false,
@@ -1373,12 +916,12 @@ router.post('/lookup', async (req, res) => {
         message: 'Payload cannot be empty',
         example: {
           "selected_tag": "optional-id-if-needed",
-          "where": [{ "key": "report_id", "value": "AP2506-01" }],
+          "where": [{ "key": "facility_id", "value": "AP2506-01" }],
           "select": defaultSelect
         },
         example_sql_expression: {
           "where": [{ "key": "company_id", "value": "your-company-id" }],
-          "select": ["id", "report_id||' - '||code as display_text"]
+          "select": ["id", "facility_id||' - '||code as display_text"]
         },
         example_custom_lookup: lookupConfig ? {
           "where": [{ "key": "company_id", "value": "your-company-id" }],
@@ -1389,21 +932,21 @@ router.post('/lookup', async (req, res) => {
           "where": {
             "logic": "OR",
             "conditions": [
-              { "key": "report_id", "operator": "like", "value": "%Portal%" },
-              { "key": "report_id", "operator": "like", "value": "%system%", "sensitive": false }
+              { "key": "facility_id", "operator": "like", "value": "%Portal%" },
+              { "key": "facility_id", "operator": "like", "value": "%system%", "sensitive": false }
             ]
           },
-          "select": ["id", "title"]
+          "select": ["id", "facility_code", "facility_name", "room_name"]
         },
         example_with_ordering: {
-          "select": ["id", "report_id"],
+          "select": ["id", "facility_id"],
           "sort_columns": [
             {
-              "column": "report_number",
+              "column": "facility_code",
               "direction": "ASC"
             },
             {
-              "column": "report_id",
+              "column": "facility_id",
               "direction": "ASC"
             }
           ]
@@ -1412,7 +955,7 @@ router.post('/lookup', async (req, res) => {
       });
     }
 
-    // req.log.debug('Request body maintenance-report/lookup:', JSON.stringify(req.body, null, 2));
+    // req.log.debug('Request body facility-asset/lookup:', JSON.stringify(req.body, null, 2));
 
     // Cek apakah ada where clause (format baru) atau selected_tag (format lama)
     if (req.body.where) {
@@ -1427,19 +970,19 @@ router.post('/lookup', async (req, res) => {
           message: 'Invalid where format',
           example: {
             "where": [
-              { "key": "report_id", "value": "AP2506-01" }
+              { "key": "facility_id", "value": "AP2506-01" }
             ],
-            "select": ["id", "report_id"]
+            "select": ["id", "facility_id"]
           },
           example_advanced: {
             "where": {
               "logic": "OR",
               "conditions": [
-                { "key": "report_id", "operator": "like", "value": "%Portal%" },
-                { "key": "report_id", "operator": "like", "value": "%system%", "sensitive": false }
+                { "key": "facility_id", "operator": "like", "value": "%Portal%" },
+                { "key": "facility_id", "operator": "like", "value": "%system%", "sensitive": false }
               ]
             },
-            "select": ["id", "title"]
+            "select": ["id", "facility_code", "facility_name", "room_name"]
           },
           timestamp: new Date().toISOString()
         });
@@ -1447,7 +990,7 @@ router.post('/lookup', async (req, res) => {
 
       // Validasi select fields jika ada (support SQL expressions)
       if (req.body.select && Array.isArray(req.body.select)) {
-        const validFields = ["report_id","report_number","reporter_id","category_id","facility_id","title","location_floor","location_room","location_detail","description","urgency","status","assigned_to_id","admin_note","technician_note","resolution_note","rejection_reason","photo_before_url","photo_after_url","reported_at","assigned_at","started_at","solved_at","closed_at","created_at","updated_at"];
+        const validFields = ["facility_id","facility_code","facility_name","facility_type","floor_level","room_name","location_detail","brand","model","serial_number","condition_status","is_active","notes","created_at","updated_at"];
         const invalidFields = [];
 
         // Check setiap field dalam select
@@ -1486,7 +1029,7 @@ router.post('/lookup', async (req, res) => {
       }
 
       // Gunakan method getLookupDataWithFilter
-      const list = await maintenanceReportModel.getLookupDataWithFilter(req.body);
+      const list = await facilityAssetModel.getLookupDataWithFilter(req.body);
 
       console.log(`Lookup with filter results: ${list.length} records found`);
       return res.json({
@@ -1502,7 +1045,7 @@ router.post('/lookup', async (req, res) => {
       console.log('Using legacy format with selected_tag or select-only request');
 
       const selectedTag = req.body.selected_tag || '';
-      console.log(`maintenance-report static lookup request with selected_tag: ${selectedTag}`);
+      console.log(`facility-asset static lookup request with selected_tag: ${selectedTag}`);
 
       // Jika ada field select atau sort_columns, gunakan getLookupDataWithFilter dengan body yang dimodifikasi
       if ((req.body.select && Array.isArray(req.body.select)) || (req.body.sort_columns && Array.isArray(req.body.sort_columns))) {
@@ -1514,7 +1057,7 @@ router.post('/lookup', async (req, res) => {
           where: [] // Empty where untuk mengambil semua data
         };
 
-        const list = await maintenanceReportModel.getLookupDataWithFilter(modifiedBody);
+        const list = await facilityAssetModel.getLookupDataWithFilter(modifiedBody);
 
         console.log(`Static lookup with select/order results: ${list.length} records found`);
         return res.json({
@@ -1527,7 +1070,7 @@ router.post('/lookup', async (req, res) => {
         });
       } else {
         // Gunakan model untuk mendapatkan data dengan method lama
-        const list = await maintenanceReportModel.getStaticLookupData(selectedTag);
+        const list = await facilityAssetModel.getStaticLookupData(selectedTag);
 
         console.log(`Static lookup results: ${list.length} records found`);
         return res.json({
@@ -1541,11 +1084,11 @@ router.post('/lookup', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Error in maintenance-report static lookup:', error);
+    console.error('Error in facility-asset static lookup:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal Server Error',
-      message: 'An error occurred while fetching maintenance-report data',
+      message: 'An error occurred while fetching facility-asset data',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       timestamp: new Date().toISOString()
     });
@@ -1553,10 +1096,10 @@ router.post('/lookup', async (req, res) => {
 });
 
 
-// POST /api/facility-helpdesk/maintenance-report/read - Manual pagination endpoint
+// POST /api/facility-helpdesk/facility-asset/read - Manual pagination endpoint
 router.post('/read', async (req, res) => {
   try {
-    // req.log.debug('Request body maintenance-report/read:', JSON.stringify(req.body, null, 2));
+    // req.log.debug('Request body facility-asset/read:', JSON.stringify(req.body, null, 2));
 
     // Validasi request body
     if (!req.body || Object.keys(req.body).length === 0) {
@@ -1574,7 +1117,7 @@ router.post('/read', async (req, res) => {
     const perPage = paginate ? parseInt(req.body.per_page || 10, 10) : null;
     const limit = !paginate ? Math.min(Math.max(parseInt(req.body.limit || 1000, 10), 1), 5000) : null;
     const searchValue = req.body.search_value || '';
-    const searchBy = req.body.search_by || 'report_id';
+    const searchBy = req.body.search_by || 'facility_id';
 
     // Parse sort_columns
     let sort_columns = [];
@@ -1594,7 +1137,7 @@ router.post('/read', async (req, res) => {
     }
 
     // Proses parameter select untuk kolom selektif
-    const validFields = ["report_id","report_number","reporter_id","category_id","facility_id","title","location_floor","location_room","location_detail","description","urgency","status","assigned_to_id","admin_note","technician_note","resolution_note","rejection_reason","photo_before_url","photo_after_url","reported_at","assigned_at","started_at","solved_at","closed_at","created_at","updated_at"];
+    const validFields = ["facility_id","facility_code","facility_name","facility_type","floor_level","room_name","location_detail","brand","model","serial_number","condition_status","is_active","notes","created_at","updated_at"];
     let select = null;
     if (req.body.select && Array.isArray(req.body.select)) {
       const invalidFields = req.body.select.filter(field => !validFields.includes(field));
@@ -1672,7 +1215,7 @@ router.post('/read', async (req, res) => {
     }
 
     // Gunakan model untuk mendapatkan data list
-    const result = await maintenanceReportModel.getList(options);
+    const result = await facilityAssetModel.getList(options);
 
     // Format response berdasarkan mode
     if (paginate) {
@@ -1702,12 +1245,12 @@ router.post('/read', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Error in maintenance-report list:', error);
+    console.error('Error in facility-asset list:', error);
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
       success: false,
       error: statusCode === 400 ? 'Bad Request' : 'Internal Server Error',
-      message: statusCode === 400 ? error.message : 'An error occurred while fetching maintenance-report list data',
+      message: statusCode === 400 ? error.message : 'An error occurred while fetching facility-asset list data',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       timestamp: new Date().toISOString()
     });
@@ -1719,24 +1262,24 @@ router.post('/read', async (req, res) => {
 // Endpoint info — self-documenting API
 router.get('/info', async (req, res) => {
   try {
-    const actions = {"datatables":true,"read":true,"first":true,"create":true,"update":true,"delete":true,"lookup":true,"export":false,"import":false,"workflow":true,"info":true};
+    const actions = {"datatables":true,"read":true,"first":true,"create":true,"update":true,"delete":true,"lookup":true,"export":false,"import":false,"workflow":false,"info":true};
 
-    const modelInfo = await maintenanceReportModel.getModelInfo(actions);
+    const modelInfo = await facilityAssetModel.getModelInfo(actions);
 
     res.json({
       success: true,
-      endpoint: 'maintenance-report',
+      endpoint: 'facility-asset',
       module: 'facility-helpdesk',
       table: modelInfo.table,
       fields: modelInfo.fields,
       querySources: modelInfo.querySources,
       actions: actions,
       databaseType: 'postgres',
-      generated: '2026-04-15 01:43:40',
+      generated: '2026-04-15 01:43:38',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error in maintenance-report info:', error);
+    console.error('Error in facility-asset info:', error);
     res.status(500).json({
       success: false,
       error: 'Internal Server Error',
@@ -1750,135 +1293,7 @@ router.get('/info', async (req, res) => {
 router.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    endpoint: 'maintenance-report',
-    timestamp: new Date().toISOString()
-  });
-});
-
-function buildMaintenanceReportSummaryResponse(result) {
-  if (!result.data || !Array.isArray(result.data)) {
-    return {
-      success: true,
-      summary: {
-        total_reports: 0,
-        by_status: {
-          draft: 0,
-          submitted: 0,
-          rejected_by_wom: 0,
-          assigned: 0,
-          in_progress: 0,
-          pending_review: 0,
-          rejected: 0,
-          approved: 0
-        },
-        by_urgency: {
-          low: 0,
-          medium: 0,
-          high: 0
-        },
-        not_processed: 0,
-        in_progress_count: 0,
-        completed: 0
-      },
-      latest: [],
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  const data = result.data;
-  const statusCounts = {
-    draft: 0,
-    submitted: 0,
-    rejected_by_wom: 0,
-    assigned: 0,
-    in_progress: 0,
-    pending_review: 0,
-    rejected: 0,
-    approved: 0
-  };
-
-  const urgencyCounts = {
-    low: 0,
-    medium: 0,
-    high: 0
-  };
-
-  const latest = [];
-
-  data.forEach(row => {
-    const status = (row.status || 'draft').toLowerCase();
-    const urgency = (row.urgency || 'low').toLowerCase();
-
-    if (statusCounts.hasOwnProperty(status)) {
-      statusCounts[status]++;
-    }
-
-    if (urgencyCounts.hasOwnProperty(urgency)) {
-      urgencyCounts[urgency]++;
-    }
-
-    if (latest.length < 10) {
-      latest.push({
-        report_id: row.report_id,
-        report_number: row.report_number,
-        title: row.title,
-        status: row.status,
-        urgency: row.urgency,
-        category_name: row.category_name,
-        reporter_name: row.reporter_name,
-        reported_at: row.reported_at
-      });
-    }
-  });
-
-  const totalReports = data.length;
-  const notProcessed = statusCounts.draft + statusCounts.submitted;
-
-  return {
-    success: true,
-    summary: {
-      total_reports: totalReports,
-      by_status: statusCounts,
-      by_urgency: urgencyCounts,
-      not_processed: notProcessed,
-      in_progress_count: statusCounts.in_progress,
-      completed: statusCounts.approved
-    },
-    latest,
-    timestamp: new Date().toISOString()
-  };
-}
-
-async function getMaintenanceReportSummary(req, res) {
-  try {
-    console.log('[Summary] Fetching maintenance report list...');
-    // Gunakan model untuk get all data, kemudian aggregate di memory
-    const result = await maintenanceReportModel.getList({ limit: 10000 });
-    console.log('[Summary] Result received:', { hasData: !!result.data, dataLength: result.data?.length || 0 });
-    res.json(buildMaintenanceReportSummaryResponse(result));
-  } catch (error) {
-    console.error('Error in maintenance-report summary:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal Server Error',
-      message: 'An error occurred while fetching summary data',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      timestamp: new Date().toISOString()
-    });
-  }
-}
-
-// GET /api/facility-helpdesk/maintenance-report/summary - Dashboard summary statistics
-router.get('/summary', getMaintenanceReportSummary);
-
-// Backward-compatible alias for older dashboard builds
-router.get('/statistics', getMaintenanceReportSummary);
-
-// Health check endpoint
-router.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    endpoint: 'maintenance-report',
+    endpoint: 'facility-asset',
     timestamp: new Date().toISOString()
   });
 });

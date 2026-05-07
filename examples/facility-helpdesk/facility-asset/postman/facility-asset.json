@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "mz7owjycjti6v46dmojwe",
+    "_postman_id": "trivcqaxrstprnsnr4jc",
     "name": "Facility-helpdesk - Facility-asset",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "restforge-generator"
@@ -98,7 +98,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"facility_id\": \"Demo facility_id\",\n  \"facility_code\": \"DMO001\",\n  \"facility_name\": \"Demo Name\",\n  \"facility_type\": \"Demo facility_type\",\n  \"floor_level\": \"Demo floor_level\",\n  \"room_name\": \"Demo Name\",\n  \"location_detail\": \"Demo location_detail\",\n  \"brand\": \"Demo brand\",\n  \"model\": \"Demo model\",\n  \"serial_number\": \"Demo serial_number\",\n  \"condition_status\": \"good\",\n  \"is_active\": true,\n  \"notes\": \"Demo notes\",\n  \"created_at\": \"Demo created_at\",\n  \"updated_at\": \"2026-04-15\"\n}",
+          "raw": "{\n  \"facility_id\": \"Demo facility_id\",\n  \"facility_code\": \"DMO001\",\n  \"facility_name\": \"Demo Name\",\n  \"facility_type\": \"Demo facility_type\",\n  \"floor_level\": \"Demo floor_level\",\n  \"room_name\": \"Demo Name\",\n  \"location_detail\": \"Demo location_detail\",\n  \"brand\": \"Demo brand\",\n  \"model\": \"Demo model\",\n  \"serial_number\": \"Demo serial_number\",\n  \"barcode\": \"DMO001\",\n  \"condition_status\": \"good\",\n  \"is_active\": true,\n  \"notes\": \"Demo notes\",\n  \"created_at\": \"Demo created_at\",\n  \"updated_at\": \"2026-05-07\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -135,7 +135,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"facility_id\": \"Demo facility_id\",\n  \"facility_code\": \"DMO001\",\n  \"facility_name\": \"Updated Demo Name\",\n  \"facility_type\": \"Demo facility_type\",\n  \"floor_level\": \"Demo floor_level\",\n  \"room_name\": \"Updated Demo Name\",\n  \"location_detail\": \"Demo location_detail\",\n  \"brand\": \"Demo brand\",\n  \"model\": \"Demo model\",\n  \"serial_number\": \"Demo serial_number\",\n  \"condition_status\": \"good\",\n  \"is_active\": true,\n  \"notes\": \"Demo notes\",\n  \"created_at\": \"Demo created_at\",\n  \"updated_at\": \"2026-04-15\"\n}",
+          "raw": "{\n  \"facility_id\": \"Demo facility_id\",\n  \"facility_code\": \"DMO001\",\n  \"facility_name\": \"Updated Demo Name\",\n  \"facility_type\": \"Demo facility_type\",\n  \"floor_level\": \"Demo floor_level\",\n  \"room_name\": \"Updated Demo Name\",\n  \"location_detail\": \"Demo location_detail\",\n  \"brand\": \"Demo brand\",\n  \"model\": \"Demo model\",\n  \"serial_number\": \"Demo serial_number\",\n  \"barcode\": \"DMO001\",\n  \"condition_status\": \"good\",\n  \"is_active\": true,\n  \"notes\": \"Demo notes\",\n  \"created_at\": \"Demo created_at\",\n  \"updated_at\": \"2026-05-07\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -172,7 +172,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"where\": {\n    \"key\": \"facility_id\",\n    \"value\": \"Demo facility_id\"\n  },\n  \"select\": [\n    \"facility_id\",\n    \"facility_code\",\n    \"facility_name\",\n    \"facility_type\",\n    \"floor_level\",\n    \"room_name\",\n    \"location_detail\",\n    \"brand\",\n    \"model\",\n    \"serial_number\",\n    \"condition_status\",\n    \"is_active\",\n    \"notes\",\n    \"created_at\",\n    \"updated_at\"\n  ]\n}",
+          "raw": "{\n  \"where\": {\n    \"key\": \"facility_id\",\n    \"value\": \"Demo facility_id\"\n  },\n  \"select\": [\n    \"facility_id\",\n    \"facility_code\",\n    \"facility_name\",\n    \"facility_type\",\n    \"floor_level\",\n    \"room_name\",\n    \"location_detail\",\n    \"brand\",\n    \"model\",\n    \"serial_number\",\n    \"barcode\",\n    \"condition_status\",\n    \"is_active\",\n    \"notes\",\n    \"created_at\",\n    \"updated_at\"\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"

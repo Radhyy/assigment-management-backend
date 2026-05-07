@@ -1,17 +1,17 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-04-15T01:43:44.901Z",
+  "lastUpdated": "2026-05-07T00:02:47.063Z",
   "totalModules": 4,
-  "totalEndpoints": 27,
+  "totalEndpoints": 28,
   "modules": {
     "facility-helpdesk-workbench": {
-      "endpointCount": 6,
+      "endpointCount": 7,
       "databaseType": "postgres"
     },
     "facility-helpdesk": {
       "endpointCount": 7,
       "databaseType": "postgres",
-      "lastUpdated": "2026-04-15T01:43:44.899Z",
+      "lastUpdated": "2026-05-07T00:02:47.058Z",
       "createdAt": "2026-04-15T01:43:10.818Z"
     },
     "mini-inventory-workbench": {

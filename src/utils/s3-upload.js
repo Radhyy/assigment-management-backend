@@ -31,7 +31,9 @@ async function uploadImageToS3(file) {
       Key: key,
       Body: file.buffer,
       ContentType: file.mimetype,
-      ACL: "public-read", // Untuk URL public
+      // Do not set ACL by default. Many buckets have "Bucket owner enforced" and
+      // reject ACL headers. If public ACLs are required, set via environment
+      // or remove bucket ownership enforcement.
     });
 
     await s3Client.send(command);
@@ -43,7 +45,8 @@ async function uploadImageToS3(file) {
     
     return publicUrl;
   } catch (error) {
-    console.error("Error uploading file to S3:", error.message);
+    console.error("Error uploading file to S3:", error && error.message ? error.message : error);
+    if (error && error.$metadata) console.error('S3 $metadata:', error.$metadata);
     throw new Error(`S3 upload failed: ${error.message}`);
   }
 }

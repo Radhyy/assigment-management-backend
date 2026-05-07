@@ -334,6 +334,7 @@
         "brand",
         "model",
         "serial_number",
+        "barcode",
         "condition_status",
         "is_active",
         "notes",
@@ -394,11 +395,12 @@
           "brand": "Demo brand",
           "model": "Demo model",
           "serial_number": "Demo serial_number",
+          "barcode": "DMO001",
           "condition_status": "good",
           "is_active": true,
           "notes": "Demo notes",
           "created_at": "Demo created_at",
-          "updated_at": "2026-04-15"
+          "updated_at": "2026-05-07"
         },
         "update": {
           "facility_id": "Demo facility_id",
@@ -411,11 +413,12 @@
           "brand": "Demo brand",
           "model": "Demo model",
           "serial_number": "Demo serial_number",
+          "barcode": "DMO001",
           "condition_status": "good",
           "is_active": true,
           "notes": "Demo notes",
           "created_at": "Demo created_at",
-          "updated_at": "2026-04-15"
+          "updated_at": "2026-05-07"
         },
         "delete": {
           "where": [
@@ -443,6 +446,7 @@
             "brand",
             "model",
             "serial_number",
+            "barcode",
             "condition_status",
             "is_active",
             "notes",

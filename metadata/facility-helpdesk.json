@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "moduleName": "facility-helpdesk",
   "createdAt": "2026-04-15T01:43:10.818Z",
-  "updatedAt": "2026-04-15T01:43:44.899Z",
+  "updatedAt": "2026-05-07T00:02:47.058Z",
   "databaseType": "postgres",
   "endpoints": {
     "app-user": {
@@ -83,7 +83,7 @@
       "version": "2.0.0",
       "type": "module",
       "createdAt": "2026-04-15T01:43:38.339Z",
-      "updatedAt": "2026-04-15T01:43:38.339Z",
+      "updatedAt": "2026-05-07T00:02:47.057Z",
       "path": "src/modules/facility-helpdesk/facility-asset.js",
       "modelPath": "src/models/facility-helpdesk/facility-asset.js",
       "tableName": "facility_asset",
@@ -105,15 +105,15 @@
         "readComposite": false,
         "workflow": false
       },
-      "fieldCount": 15,
+      "fieldCount": 16,
       "hasAdvancedQueries": false,
       "hasNestedQueries": false,
       "hasFilters": false,
       "hasSearchColumns": false,
       "statistics": {
-        "timesGenerated": 1,
-        "lastGenerated": "2026-04-15T01:43:38.339Z",
-        "lastModified": "2026-04-15T01:43:38.339Z"
+        "timesGenerated": 2,
+        "lastGenerated": "2026-05-07T00:02:47.057Z",
+        "lastModified": "2026-05-07T00:02:47.057Z"
       }
     },
     "maintenance-report": {
@@ -270,7 +270,7 @@
     "endpointsByType": {
       "module": 7
     },
-    "lastGenerated": "2026-04-15T01:43:44.898Z"
+    "lastGenerated": "2026-05-07T00:02:47.057Z"
   },
   "config": {
     "autoBackup": false,

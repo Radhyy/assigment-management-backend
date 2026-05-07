@@ -14,6 +14,7 @@
     "brand",
     "model",
     "serial_number",
+    "barcode",
     "condition_status",
     "is_active",
     "notes",

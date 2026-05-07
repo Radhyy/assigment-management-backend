@@ -6,13 +6,16 @@ const { v4: uuidv4 } = require('uuid');
 const { logger, logServerReady, logEndpointRegistered, createRequestLogger, logRequest } = require('restforgejs/src/utils/logger');
 const ExportHandler = require('restforgejs/src/components/handlers/export_handler');
 const ImportHandler = require('restforgejs/src/components/handlers/import_handler');
-const { extractExportConfigFromEndpoint, extractImportConfigFromEndpoint } = require('restforgejs/src/utils/config-extractor');
+const UploadHandler = require('restforgejs/src/components/handlers/upload_handler');
+const { extractExportConfigFromEndpoint, extractImportConfigFromEndpoint, extractUploadConfigFromEndpoint } = require('restforgejs/src/utils/config-extractor');
 const rateLimiter = require('restforgejs/src/middleware/rate-limiter');
 const idempotencyMiddleware = require('restforgejs/src/middleware/idempotency');
 const bodyOptionsMiddleware = require('restforgejs/src/middleware/body-options');
+const corsMiddleware = require('restforgejs/src/middleware/cors');
+const securityHeaders = require('restforgejs/src/middleware/security-headers');
 
 /**
- * FacilityHelpdesk Module - Auto-generated on 2026-04-15 01:43:44
+ * FacilityHelpdesk Module - Auto-generated on 2026-05-07 00:02:47
  *
  * Fungsi untuk mengeksekusi modul facility-helpdesk
  * @param {Object} config - Konfigurasi untuk menjalankan modul
@@ -31,7 +34,6 @@ async function execute(config) {
       const moduleNameCapitalized = 'FacilityHelpdesk';
 
       // Configuration options
-      const corsEnabled = config.cors !== false;
       const loggingEnabled = config.logging !== false;
       const apiKeyRequired = !!config.key;
 
@@ -39,28 +41,17 @@ async function execute(config) {
         event: 'module_starting',
         module: moduleNameCapitalized,
         port,
-        cors: corsEnabled,
+        cors: process.env.CORS_ENABLED !== 'false',
+        helmet: process.env.HELMET_ENABLED === 'true',
         logging: loggingEnabled,
         apiKey: apiKeyRequired
       }, `Starting ${moduleNameCapitalized} module`);
 
-      // Middleware setup
-      if (corsEnabled) {
-        app.use((req, res, next) => {
-          // CORS configuration
-          res.header('Access-Control-Allow-Origin', '*');
-          res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-          res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-Key, X-Request-Mode, X-Request-ID, Idempotency-Key, X-User-Role, X-User-Id');
-          res.header('Access-Control-Expose-Headers', 'Idempotent-Replayed, Idempotency-Key');
+      // CORS middleware (konfigurasi via CORS_ENABLED dan CORS_ORIGINS di .env)
+      app.use(corsMiddleware.middleware());
 
-          // Handle preflight OPTIONS requests
-          if (req.method === 'OPTIONS') {
-            return res.sendStatus(200);
-          }
-
-          next();
-        });
-      }
+      // Security headers middleware (konfigurasi via HELMET_ENABLED di .env)
+      app.use(securityHeaders.middleware());
 
       // JSON parsing middleware dengan error handling
       app.use(bodyParser.json({
@@ -208,7 +199,7 @@ async function execute(config) {
           name: 'FacilityHelpdesk API',
           description: 'Auto-generated API module for facility-helpdesk',
           documentation: 'See individual endpoint documentation',
-          generated: '2026-04-15 01:43:44'
+          generated: '2026-05-07 00:02:47'
         });
       });
 
@@ -312,6 +303,25 @@ async function execute(config) {
                 endpoint: endpointName,
                 error: importError.message
               }, `Import registration failed for ${endpointName}: ${importError.message}`);
+            }
+
+            // Register upload routes untuk endpoint ini (auto-detect dari embedded config)
+            try {
+              const uploadConfig = extractUploadConfigFromEndpoint(endpointPath);
+              if (uploadConfig) {
+                UploadHandler.registerRoutes(app, 'facility-helpdesk', endpointName, uploadConfig);
+                logger.info({
+                  event: 'upload_routes_registered',
+                  endpoint: endpointName,
+                  fields: Object.keys(uploadConfig.fields || {})
+                }, `Upload routes registered for ${endpointName}`);
+              }
+            } catch (uploadError) {
+              logger.error({
+                event: 'upload_registration_error',
+                endpoint: endpointName,
+                error: uploadError.message
+              }, `Upload registration failed for ${endpointName}: ${uploadError.message}`);
             }
 
           } catch (endpointError) {
@@ -483,4 +493,4 @@ module.exports = { execute };
 // Additional exports untuk testing dan management
 module.exports.facilityHelpdesk = { execute };
 module.exports.moduleName = 'facility-helpdesk';
-module.exports.generated = '2026-04-15 01:43:44';
+module.exports.generated = '2026-05-07 00:02:47';

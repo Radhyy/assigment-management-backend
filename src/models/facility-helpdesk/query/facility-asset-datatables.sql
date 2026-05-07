@@ -9,6 +9,7 @@ SELECT
     f.brand,
     f.model,
     f.serial_number,
+    f.barcode,
     f.condition_status,
     f.is_active,
     f.notes,

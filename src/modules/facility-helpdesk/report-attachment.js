@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const reportAttachmentModel = require('../../models/facility-helpdesk/report-attachment');
+const multer = require('multer');
+const { uploadImageToS3 } = require('../../utils/s3-upload');
+
+// Multer memory storage to obtain file.buffer for direct S3 upload
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 
 // Component Engine untuk event lifecycle (optional)
@@ -291,6 +296,41 @@ router.post('/datatables', async (req, res) => {
   }
 });
 
+
+// POST /api/facility-helpdesk/report-attachment/upload - Upload file via multipart/form-data and save to S3
+// Expects field `file` (single file) and optional `report_id`, `attachment_type` in body
+router.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded', message: 'Form must include a file field named "file"' });
+    }
+
+    // Upload file buffer to S3
+    const publicUrl = await uploadImageToS3(req.file);
+
+    const payload = {
+      report_id: req.body.report_id || null,
+      attachment_type: req.body.attachment_type || 'supporting',
+      file_name: req.file.originalname,
+      file_url: publicUrl,
+      mime_type: req.file.mimetype,
+      file_size_bytes: req.file.size,
+      uploaded_by: req.headers['user-id'] || req.body.uploaded_by || 'system'
+    };
+
+    const responseData = await reportAttachmentModel.addData(payload, { additionalContext: { requestId: req.id || null } });
+
+    return res.status(201).json({
+      success: true,
+      message: 'File uploaded and record created',
+      data: responseData,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error uploading file to S3 and saving record:', error);
+    return res.status(500).json({ success: false, error: 'Upload failed', message: error.message });
+  }
+});
 
 // POST /api/facility-helpdesk/report-attachment/create - Menambahkan data report-attachment baru
 router.post('/create', async (req, res) => {

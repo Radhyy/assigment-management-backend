@@ -5,61 +5,50 @@ const path = require('path');
 // AdvancedFilterHelper dihapus — semua filtering ditangani oleh buildObjectFilterClause dan buildComplexWhereClause
 
 /**
- * MaintenanceReport Model - Auto-generated on 2026-04-15 01:43:40
+ * FacilityAsset Model - Auto-generated on 2026-04-15 01:43:38
  *
- * Model untuk maintenance-report yang mewarisi fungsi-fungsi dari BaseModel
- * Table: maintenance_report
- * Fields: 25 fields
+ * Model untuk facility-asset yang mewarisi fungsi-fungsi dari BaseModel
+ * Table: facility_asset
+ * Fields: 15 fields
  * Database: PostgreSQL
  */
-class MaintenanceReportModel extends BaseModel {
+class FacilityAssetModel extends BaseModel {
   /**
    * Constructor
    */
   constructor() {
-    // Definisikan validFields - semua field yang valid untuk tabel maintenance-report
+    // Definisikan validFields - semua field yang valid untuk tabel facility-asset
     const validFields = [
-      'report_id',
-      'report_number',
-      'reporter_id',
-      'category_id',
       'facility_id',
-      'title',
-      'location_floor',
-      'location_room',
+      'facility_code',
+      'facility_name',
+      'facility_type',
+      'floor_level',
+      'room_name',
       'location_detail',
-      'description',
-      'urgency',
-      'status',
-      'assigned_to_id',
-      'admin_note',
-      'technician_note',
-      'resolution_note',
-      'rejection_reason',
-      'photo_before_url',
-      'photo_after_url',
-      'reported_at',
-      'assigned_at',
-      'started_at',
-      'solved_at',
-      'closed_at',
+      'brand',
+      'model',
+      'serial_number',
+      'condition_status',
+      'is_active',
+      'notes',
       'created_at',
       'updated_at'
     ];
 
     // Definisikan datatablesWhere sesuai payload
-    const datatablesWhere = ["report_number","title","reporter_name","category_name","facility_name","status","all"];
+    const datatablesWhere = ["facility_code","facility_name","facility_type","room_name","location_detail","all"];
 
     // Panggil constructor parent dengan nama tabel, validFields, dan datatablesWhere
-    super('maintenance_report', validFields, datatablesWhere);
+    super('facility_asset', validFields, datatablesWhere);
 
     // Setup primary key dari payload atau fallback ke fieldName pertama
-    this.primaryKey = 'report_id';
+    this.primaryKey = 'facility_id';
 
     // Setup viewName untuk operasi read jika berbeda dari tableName
-    this.viewName = 'maintenance_report';
-    this.readSource = 'maintenance_report'; // Source untuk operasi read (get, list, lookup, datatables)
-    this.writeSource = 'maintenance_report'; // Source untuk operasi write (add, update, delete)
+    this.viewName = 'facility_asset';
+    this.readSource = 'facility_asset'; // Source untuk operasi read (get, list, lookup, datatables)
+    this.writeSource = 'facility_asset'; // Source untuk operasi write (add, update, delete)
 
     // Flag untuk self-documenting API (endpoint /info)
     this.hasViewQuery = false;
@@ -70,7 +59,7 @@ class MaintenanceReportModel extends BaseModel {
     
     // Field validation configuration
     this.validationConfig = {
-      'report_id': {
+      'facility_id': {
         type: 'string',
         constraints: {
             "primaryKey": true,
@@ -78,69 +67,45 @@ class MaintenanceReportModel extends BaseModel {
             "required": true
       }
       },
-      'report_number': {
+      'facility_code': {
         type: 'string',
         constraints: {
             "required": true,
             "unique": true,
+            "uppercase": true,
             "trim": true,
             "maxLength": 30
       }
       },
-      'urgency': {
+      'condition_status': {
         type: 'string',
         constraints: {
             "required": true,
             "enum": [
-                  "low",
-                  "medium",
-                  "high"
+                  "good",
+                  "need_repair",
+                  "broken",
+                  "maintenance"
             ]
       }
       },
-      'status': {
-        type: 'string',
+      'is_active': {
+        type: 'boolean',
         constraints: {
-            "required": true,
-            "enum": [
-                  "draft",
-                  "submitted",
-          "rejected_by_wom",
-                  "assigned",
-                  "in_progress",
-                  "pending_review",
-          "rejected",
-          "approved"
-            ]
-      }
-      },
-      'photo_before_url': {
-        type: 'string',
-        constraints: {
-        "required": false,
-        "trim": false,
-        "maxLength": 1000000
-      }
-      },
-      'photo_after_url': {
-        type: 'string',
-        constraints: {
-        "required": false,
-        "trim": false,
-        "maxLength": 1000000
+            "default": true
       }
       }
     };
 
     // Model metadata
     this.modelMetadata = {
-      endpointName: 'maintenance-report',
+      endpointName: 'facility-asset',
       moduleName: 'facility-helpdesk',
-      tableName: 'maintenance_report',
-      viewName: 'maintenance_report',
-      fieldCount: 25,
+      tableName: 'facility_asset',
+      viewName: 'facility_asset',
+      fieldCount: 15,
       databaseType: 'postgres',
-      generated: '2026-04-15 01:43:40',
+      generated: '2026-04-15 01:43:38',
       features: ["custom_where"]
     };
   }
@@ -157,9 +122,9 @@ class MaintenanceReportModel extends BaseModel {
   }
 
   /**
-   * Override getListQuery untuk menyesuaikan dengan kebutuhan maintenance-report
+   * Override getListQuery untuk menyesuaikan dengan kebutuhan facility-asset
    * @param {Object} options - Query options
-   * @returns {string} SQL query dasar untuk maintenance-report
+   * @returns {string} SQL query dasar untuk facility-asset
    */
   getListQuery(options = {}) {
     // Load query dasar dengan placeholder replacement
@@ -167,7 +132,7 @@ class MaintenanceReportModel extends BaseModel {
     // Load query dari file lokal
     let baseQuery;
     try {
-      const queryFilePath = path.join(__dirname, 'query', 'maintenance-report-datatables.sql');
+      const queryFilePath = path.join(__dirname, 'query', 'facility-asset-datatables.sql');
       if (fs.existsSync(queryFilePath)) {
         baseQuery = fs.readFileSync(queryFilePath, 'utf8').trim();
       } else {
@@ -516,26 +481,26 @@ class MaintenanceReportModel extends BaseModel {
   }
 
   /**
-   * Override getLookupData untuk menggunakan kolom 'report_id' yang benar
+   * Override getLookupData untuk menggunakan kolom 'facility_id' yang benar
    * @param {string} search - Kata kunci pencarian
    * @returns {Array} Array objek hasil lookup
    */
   async getLookupData(search) {
     try {
-      const query = 'SELECT report_id, report_id FROM ' + this.getLookupSource() + ' WHERE upper(a.report_id) LIKE upper($1) ORDER BY a.report_id';
+      const query = 'SELECT facility_id, facility_id FROM ' + this.getLookupSource() + ' WHERE upper(a.facility_id) LIKE upper($1) ORDER BY a.facility_id';
 
       const params = [`%${search || ''}%`];
 
       const data = await db.executeQuery(query, params);
 
       const result = data.map(item => ({
-        id: item.report_id,
-        text: item.report_id
+        id: item.facility_id,
+        text: item.facility_id
       }));
 
       return result;
     } catch (error) {
-      console.error('Error in getLookupData (MaintenanceReportModel):', error);
+      console.error('Error in getLookupData (FacilityAssetModel):', error);
       throw error;
     }
   }
@@ -549,10 +514,10 @@ class MaintenanceReportModel extends BaseModel {
   async getLookupDataDynamic(search, extraFilters = {}) {
     try {
       // Gunakan custom lookup config jika ada, fallback ke textFields detection
-      const lookupConfig = {"idField":"report_id","textField":"report_number||' - '||title as display_text","hasCustomText":true,"searchFields":["report_number","title"]};
+      const lookupConfig = {"idField":"facility_id","textField":"facility_code||' - '||facility_name as display_text","hasCustomText":true,"searchFields":["facility_code","facility_name"]};
       const textFields = lookupConfig && lookupConfig.searchFields.length > 0
         ? lookupConfig.searchFields
-        : ["title"];
+        : ["facility_code","facility_name","room_name"];
 
       let whereConditions = [];
       let params = [];
@@ -573,14 +538,14 @@ class MaintenanceReportModel extends BaseModel {
 
       // Add extra filters
       for (const [key, value] of Object.entries(extraFilters)) {
-        if (value && ["report_id","report_number","reporter_id","category_id","facility_id","title","location_floor","location_room","location_detail","description","urgency","status","assigned_to_id","admin_note","technician_note","resolution_note","photo_before_url","photo_after_url","reported_at","assigned_at","started_at","solved_at","closed_at","created_at","updated_at"].includes(key)) {
+        if (value && ["facility_id","facility_code","facility_name","facility_type","floor_level","room_name","location_detail","brand","model","serial_number","condition_status","is_active","notes","created_at","updated_at"].includes(key)) {
           whereConditions.push(`a.${key} = $${paramIndex++}`);
           params.push(value);
         }
       }
 
       // Build final query - gunakan custom select jika ada
-      const idField = lookupConfig ? lookupConfig.idField : 'report_id';
+      const idField = lookupConfig ? lookupConfig.idField : 'facility_id';
       const textField = lookupConfig && lookupConfig.hasCustomText
         ? lookupConfig.textField
         : textFields[0];
@@ -601,17 +566,17 @@ class MaintenanceReportModel extends BaseModel {
       const data = await db.executeQuery(query, params);
 
       return data.map(item => ({
-        id: item[idField] || item.report_id,
+        id: item[idField] || item.facility_id,
         text: item[lookupConfig && lookupConfig.hasCustomText ? 'display_text' : textFields[0]] || ''
       }));
     } catch (error) {
-      console.error('Error in getLookupDataDynamic (MaintenanceReportModel):', error);
+      console.error('Error in getLookupDataDynamic (FacilityAssetModel):', error);
       throw error;
     }
   }
 
   /**
-   * Override getStaticLookupData untuk menggunakan kolom 'report_id' yang benar
+   * Override getStaticLookupData untuk menggunakan kolom 'facility_id' yang benar
    * @param {string} selectedTag - ID yang dipilih
    * @returns {Array} Array objek hasil lookup
    */
@@ -630,32 +595,32 @@ class MaintenanceReportModel extends BaseModel {
         });
       }
 
-      const query = 'SELECT report_id, report_id FROM ' + this.getLookupSource() + ' ORDER BY a.report_id';
+      const query = 'SELECT facility_id, facility_id FROM ' + this.getLookupSource() + ' ORDER BY a.facility_id';
 
       const data = await db.executeQuery(query);
 
       // Cache result tanpa selected flag
       const cacheData = data.map(item => ({
-        id: item.report_id,
-        text: item.report_id
+        id: item.facility_id,
+        text: item.facility_id
       }));
       await this.setCachedLookup(cacheOptions, cacheData, 'static');
 
       // Return dengan selected flag
       return data.map(item => {
         const result = {
-          id: item.report_id,
-          text: item.report_id
+          id: item.facility_id,
+          text: item.facility_id
         };
 
-        if (item.report_id === selectedTag) {
+        if (item.facility_id === selectedTag) {
           result.selected = 'true';
         }
 
         return result;
       });
     } catch (error) {
-      console.error('Error in getStaticLookupData (MaintenanceReportModel):', error);
+      console.error('Error in getStaticLookupData (FacilityAssetModel):', error);
       throw error;
     }
   }
@@ -674,19 +639,19 @@ class MaintenanceReportModel extends BaseModel {
         return cachedResult;
       }
 
-      const selectColumns = options.select || ['report_id', 'report_id'];
+      const selectColumns = options.select || ['facility_id', 'facility_id'];
       let params = [];
       let paramIndex = 1;
 
       // Parse dan validasi select columns untuk support SQL expressions
-      const validTextFields = ["title"];
-      let selectClause = 'report_id';
-      let textField = 'report_id';
+      const validTextFields = ["facility_code","facility_name","room_name"];
+      let selectClause = 'facility_id';
+      let textField = 'facility_id';
       let aliasField = null;
 
       // Proses setiap column dalam select
       for (const column of selectColumns) {
-        if (column.toLowerCase() === 'report_id'.toLowerCase()) {
+        if (column.toLowerCase() === 'facility_id'.toLowerCase()) {
           continue; // primary key sudah ada
         }
 
@@ -703,7 +668,7 @@ class MaintenanceReportModel extends BaseModel {
         }
 
         // Check jika simple field name
-        if (validTextFields.includes(column) || column === 'report_id') {
+        if (validTextFields.includes(column) || column === 'facility_id') {
           selectClause += `, ${column}`;
           textField = column;
           break; // gunakan yang pertama sebagai text field
@@ -737,7 +702,7 @@ class MaintenanceReportModel extends BaseModel {
           const column = item.column;
           const direction = (item.direction || 'ASC').toUpperCase();
           if (!column) return null;
-          if (!this.validFields.includes(column) && column !== 'report_id') return null;
+          if (!this.validFields.includes(column) && column !== 'facility_id') return null;
           if (direction !== 'ASC' && direction !== 'DESC') return null;
           return `${column} ${direction}`;
         }).filter(Boolean);
@@ -753,7 +718,7 @@ class MaintenanceReportModel extends BaseModel {
         query += `ORDER BY ${aliasField || textField}`;
       }
 
-      console.log('=== DEBUG MAINTENANCE-REPORT LOOKUP WITH FILTER ===');
+      console.log('=== DEBUG FACILITY-ASSET LOOKUP WITH FILTER ===');
       console.log('Final SQL:', query);
       console.log('Parameters:', params);
       console.log('Selected columns:', selectColumns);
@@ -769,8 +734,8 @@ class MaintenanceReportModel extends BaseModel {
       // Format hasil untuk lookup (id dan text) - gunakan alias jika ada
       const textFieldName = aliasField || textField;
       const result = data.map(item => ({
-        id: item.report_id,
-        text: item[textFieldName] || item.report_id || item.name || item.code || item.description || ''
+        id: item.facility_id,
+        text: item[textFieldName] || item.facility_id || item.name || item.code || item.description || ''
       }));
 
       // Cache the result (if enabled)
@@ -779,7 +744,7 @@ class MaintenanceReportModel extends BaseModel {
       return result;
 
     } catch (error) {
-      console.error('Error in getLookupDataWithFilter (MaintenanceReportModel):', error);
+      console.error('Error in getLookupDataWithFilter (FacilityAssetModel):', error);
       throw error;
     }
   }
@@ -792,18 +757,18 @@ class MaintenanceReportModel extends BaseModel {
   getFieldMapping() {
     return {
       allFields: this.validFields,
-      textFields: ["title"],
-      dateFields: ["started_at","created_at","updated_at"],
-      requiredFields: ["title"],
-      primaryTextField: 'report_id',
+      textFields: ["facility_code","facility_name","room_name"],
+      dateFields: ["created_at","updated_at"],
+      requiredFields: ["facility_code","facility_name","room_name"],
+      primaryTextField: 'facility_id',
       searchableFields: this.getSearchableColumns ? this.getSearchableColumns().map(col => col.name) : []
     };
   }
 
   /**
-   * Override formatResponseData untuk maintenance-report
+   * Override formatResponseData untuk facility-asset
    * @param {Object} data - Data dari database
-   * @returns {Object} Data yang sudah diformat untuk response maintenance-report
+   * @returns {Object} Data yang sudah diformat untuk response facility-asset
    */
   formatResponseData(data) {
     // Gunakan parent method yang sudah include datetime formatting
@@ -1412,148 +1377,8 @@ class MaintenanceReportModel extends BaseModel {
     };
   }
 
-  /**
-   * Override addData to bypass BaseModel's hardcoded created_by field insertion
-   * The maintenance_report table doesn't have created_by column (uses created_at/updated_at instead)
-   * Solution: Use direct SQL INSERT instead of BaseModel.addData which tries to always insert created_by
-   * @param {Object} data - Data to insert
-   * @param {Object} eventContext - Event context (optional)
-   * @returns {Object} Result from direct INSERT
-   */
-  async addData(data, eventContext = null) {
-    if (!data || typeof data !== 'object') {
-      return super.addData(data, eventContext);
-    }
-
-    // Auto-populate location fields based on facility_id if provided
-    if (data.facility_id && (!data.location_floor || !data.location_room)) {
-      try {
-        const facilityQuery = `SELECT floor_level, room_name, location_detail FROM facility_asset WHERE facility_id = $1`;
-        const resFacility = await db.executeQuery(facilityQuery, [data.facility_id]);
-        if (resFacility && resFacility.length > 0) {
-          const fac = resFacility[0];
-          data.location_floor = data.location_floor || fac.floor_level;
-          data.location_room = data.location_room || fac.room_name;
-          if (!data.location_detail && fac.location_detail) {
-             data.location_detail = fac.location_detail;
-          }
-        }
-      } catch (err) {
-        console.error('[MAINTENANCE-REPORT] Failed to fetch facility info for auto-population', err.message);
-      }
-    }
-
-    // Remove created_by field if present (BaseModel would try to insert it)
-    const sanitizedData = {};
-    for (const key in data) {
-      if (key !== 'created_by') {
-        sanitizedData[key] = data[key];
-      }
-    }
-    
-    console.log('[MAINTENANCE-REPORT] addData: Using direct SQL INSERT (bypassing BaseModel to avoid created_by error)');
-    console.log('[MAINTENANCE-REPORT] addData: Data keys:', Object.keys(sanitizedData));
-
-    try {
-      // Build direct INSERT query to avoid BaseModel adding created_by
-      const columns = Object.keys(sanitizedData);
-      const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
-      const values = columns.map(col => sanitizedData[col]);
-      
-      const insertQuery = `INSERT INTO ${this.writeSource} (${columns.join(', ')}) VALUES (${placeholders}) RETURNING *`;
-      
-      console.log('[MAINTENANCE-REPORT] Direct SQL:', insertQuery);
-      console.log('[MAINTENANCE-REPORT] Values:', values);
-
-      const result = await db.executeQuery(insertQuery, values);
-      
-      console.log('[MAINTENANCE-REPORT] INSERT successful, returned rows:', result?.length);
-      
-      // Return in format BaseModel would
-      return result && result.length > 0 ? result[0] : null;
-    } catch (error) {
-      console.error('[MAINTENANCE-REPORT] Direct INSERT failed:', error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * Override updateData to bypass BaseModel's hardcoded created_by field insertion
-   * The maintenance_report table doesn't have created_by column, so direct SQL keeps update flow aligned with schema.
-   * @param {Object} data - Data to update
-   * @param {Object} eventContext - Event context (optional)
-   * @returns {Object} Result from direct UPDATE
-   */
-  async updateData(data, eventContext = null) {
-    if (!data || typeof data !== 'object') {
-      return super.updateData(data, eventContext);
-    }
-
-    // Auto-populate location fields based on facility_id if provided
-    if (data.facility_id && (!data.location_floor || !data.location_room)) {
-      try {
-        const facilityQuery = `SELECT floor_level, room_name, location_detail FROM facility_asset WHERE facility_id = $1`;
-        const resFacility = await db.executeQuery(facilityQuery, [data.facility_id]);
-        if (resFacility && resFacility.length > 0) {
-          const fac = resFacility[0];
-          data.location_floor = data.location_floor || fac.floor_level;
-          data.location_room = data.location_room || fac.room_name;
-          if (!data.location_detail && fac.location_detail) {
-             data.location_detail = fac.location_detail;
-          }
-        }
-      } catch (err) {
-        console.error('[MAINTENANCE-REPORT] Failed to fetch facility info for auto-population', err.message);
-      }
-    }
-
-    const primaryKey = this.primaryKey || 'id';
-    const recordId = data[primaryKey];
-    if (!recordId) {
-      throw new Error(`Primary key (${primaryKey}) is required for update`);
-    }
-
-    const sanitizedData = {};
-    for (const key in data) {
-      if (key !== 'created_by' && key !== primaryKey && this.validFields.includes(key)) {
-        sanitizedData[key] = data[key];
-      }
-    }
-
-    console.log('[MAINTENANCE-REPORT] updateData: Using direct SQL UPDATE (bypassing BaseModel to avoid created_by error)');
-    console.log('[MAINTENANCE-REPORT] updateData: Data keys:', Object.keys(sanitizedData));
-
-    try {
-      const columns = Object.keys(sanitizedData);
-      if (columns.length === 0) {
-        const existing = await db.executeQuery(
-          `SELECT * FROM ${this.writeSource} WHERE ${primaryKey} = $1 LIMIT 1`,
-          [recordId]
-        );
-        return existing && existing.length > 0 ? existing[0] : null;
-      }
-
-      const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(', ');
-      const values = columns.map((col) => sanitizedData[col]);
-      values.push(recordId);
-
-      const updateQuery = `UPDATE ${this.writeSource} SET ${setClause} WHERE ${primaryKey} = $${values.length} RETURNING *`;
-
-      console.log('[MAINTENANCE-REPORT] Direct UPDATE SQL:', updateQuery);
-      console.log('[MAINTENANCE-REPORT] Values:', values);
-
-      const result = await db.executeQuery(updateQuery, values);
-      console.log('[MAINTENANCE-REPORT] UPDATE successful, returned rows:', result?.length);
-
-      return result && result.length > 0 ? result[0] : null;
-    } catch (error) {
-      console.error('[MAINTENANCE-REPORT] Direct UPDATE failed:', error.message);
-      throw error;
-    }
-  }
-
   
 }
 
 // Export singleton instance
-module.exports = new MaintenanceReportModel();
+module.exports = new FacilityAssetModel();

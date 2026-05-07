@@ -1,25 +1,25 @@
 type: collection.insomnia.rest/5.0
 name: Facility-helpdesk
 meta:
-  id: wrk_atxdq0e6h2fsu23iz1mptp
-  created: 1776217418391
-  modified: 1776217418391
+  id: wrk_riwjthr8s0ctrf66i90nq
+  created: 1778112167154
+  modified: 1778112167154
 collection:
   - name: facility-asset
     meta:
-      id: fld_c6z484kq2t9daa8bi6nq8r
-      created: 1776217418391
-      modified: 1776217418391
-      sortKey: -1776217418391
+      id: fld_uy3tjs9egcnq2sl203kwea
+      created: 1778112167154
+      modified: 1778112167154
+      sortKey: -1778112167154
     children:
       - url: http://localhost:3000/api/facility-helpdesk/facility-asset/datatables
         name: facility-asset/datatables
         meta:
-          id: req_7gaxe3i0q9peri7yg66zd
-          created: 1776217418391
-          modified: 1776217418391
+          id: req_pi88w0434lknmncj54i5p
+          created: 1778112167154
+          modified: 1778112167154
           isPrivate: false
-          sortKey: -1776217418391
+          sortKey: -1778112167154
         method: POST
         body:
           mimeType: application/json
@@ -46,11 +46,11 @@ collection:
       - url: http://localhost:3000/api/facility-helpdesk/facility-asset/lookup
         name: facility-asset/lookup
         meta:
-          id: req_7ozx56itihszgcgvjfi2m
-          created: 1776217418391
-          modified: 1776217418391
+          id: req_akxyb2n0xhpesyjn2pvef
+          created: 1778112167154
+          modified: 1778112167154
           isPrivate: false
-          sortKey: -1776217417391
+          sortKey: -1778112166154
         method: POST
         body:
           mimeType: application/json
@@ -77,11 +77,11 @@ collection:
       - url: http://localhost:3000/api/facility-helpdesk/facility-asset/create
         name: facility-asset/create
         meta:
-          id: req_i78a0vv7nwqieg9st0ldps
-          created: 1776217418391
-          modified: 1776217418391
+          id: req_cwcchxzez0vy5yfjmh7j6
+          created: 1778112167154
+          modified: 1778112167154
           isPrivate: false
-          sortKey: -1776217416391
+          sortKey: -1778112165154
         method: POST
         body:
           mimeType: application/json
@@ -97,11 +97,12 @@ collection:
               "brand": "Demo brand",
               "model": "Demo model",
               "serial_number": "Demo serial_number",
+              "barcode": "DMO001",
               "condition_status": "good",
               "is_active": true,
               "notes": "Demo notes",
               "created_at": "Demo created_at",
-              "updated_at": "2026-04-15"
+              "updated_at": "2026-05-07"
             }
         headers:
           - name: Content-Type
@@ -117,11 +118,11 @@ collection:
       - url: http://localhost:3000/api/facility-helpdesk/facility-asset/update
         name: facility-asset/update
         meta:
-          id: req_pvshzpldt7iucekya6q67o
-          created: 1776217418391
-          modified: 1776217418391
+          id: req_oo8300frwr7bb7iq188p
+          created: 1778112167154
+          modified: 1778112167154
           isPrivate: false
-          sortKey: -1776217415391
+          sortKey: -1778112164154
         method: POST
         body:
           mimeType: application/json
@@ -137,11 +138,12 @@ collection:
               "brand": "Demo brand",
               "model": "Demo model",
               "serial_number": "Demo serial_number",
+              "barcode": "DMO001",
               "condition_status": "good",
               "is_active": true,
               "notes": "Demo notes",
               "created_at": "Demo created_at",
-              "updated_at": "2026-04-15"
+              "updated_at": "2026-05-07"
             }
         headers:
           - name: Content-Type
@@ -157,11 +159,11 @@ collection:
       - url: http://localhost:3000/api/facility-helpdesk/facility-asset/first
         name: facility-asset/first
         meta:
-          id: req_zs25b7tc2tmeigkpy1hs4c
-          created: 1776217418391
-          modified: 1776217418391
+          id: req_k9sbjo0macclb7vx20r1mj
+          created: 1778112167154
+          modified: 1778112167154
           isPrivate: false
-          sortKey: -1776217414391
+          sortKey: -1778112163154
         method: POST
         body:
           mimeType: application/json
@@ -182,6 +184,7 @@ collection:
                 "brand",
                 "model",
                 "serial_number",
+                "barcode",
                 "condition_status",
                 "is_active",
                 "notes",
@@ -203,11 +206,11 @@ collection:
       - url: http://localhost:3000/api/facility-helpdesk/facility-asset/delete
         name: facility-asset/delete
         meta:
-          id: req_vxyls7ym3zk4j0vsaqycnf
-          created: 1776217418391
-          modified: 1776217418391
+          id: req_0eng8jrej6h65xy81q062b
+          created: 1778112167154
+          modified: 1778112167154
           isPrivate: false
-          sortKey: -1776217413391
+          sortKey: -1778112162154
         method: POST
         body:
           mimeType: application/json
@@ -234,11 +237,11 @@ collection:
       - url: http://localhost:3000/api/facility-helpdesk/facility-asset/read
         name: facility-asset/read
         meta:
-          id: req_grgcbsqy8skwkafgbexus
-          created: 1776217418391
-          modified: 1776217418391
+          id: req_spryg7x1jj6e5elwv8joe
+          created: 1778112167154
+          modified: 1778112167154
           isPrivate: false
-          sortKey: -1776217412391
+          sortKey: -1778112161154
         method: POST
         body:
           mimeType: application/json
@@ -263,11 +266,11 @@ collection:
       - url: http://localhost:3000/api/facility-helpdesk/health
         name: health
         meta:
-          id: req_67t8xi43pk2oet3t9rwe3
-          created: 1776217418391
-          modified: 1776217418391
+          id: req_51ebhoz35jlxc66n4hugnd
+          created: 1778112167154
+          modified: 1778112167154
           isPrivate: false
-          sortKey: -1776217411391
+          sortKey: -1778112160154
         method: GET
         body:
           mimeType: application/json
@@ -285,13 +288,13 @@ collection:
 cookieJar:
   name: Default Jar
   meta:
-    id: jar_4se3thpclpjq6u6oren9
-    created: 1776217418391
-    modified: 1776217418391
+    id: jar_7t0dufa2f7jpmbi1dtm0x
+    created: 1778112167154
+    modified: 1778112167154
 environments:
   name: Base Environment
   meta:
-    id: env_baytgwe0fz7zlrqj6pahth
-    created: 1776217418391
-    modified: 1776217418391
+    id: env_0l14sfzixj73kj599wz5gn
+    created: 1778112167154
+    modified: 1778112167154
     isPrivate: false
