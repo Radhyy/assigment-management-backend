@@ -1,6 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const appUserModel = require('../../models/facility-helpdesk/app-user');
+const { uploadImageToS3 } = require('../../utils/s3-upload');
+
+function parseDataUrl(dataUrl) {
+  const match = String(dataUrl || '').match(/^data:(.+?);base64,(.+)$/);
+  if (!match) return null;
+  return {
+    mime: match[1],
+    buffer: Buffer.from(match[2], 'base64')
+  };
+}
+
+async function uploadDataUrlFieldIfNeeded(fieldValue, prefix) {
+  if (!fieldValue || typeof fieldValue !== 'string') return fieldValue;
+  if (!fieldValue.startsWith('data:')) return fieldValue;
+
+  const parsed = parseDataUrl(fieldValue);
+  if (!parsed) return fieldValue;
+
+  const ext = (parsed.mime.split('/')[1] || 'bin').split('+')[0];
+  const fakeFile = {
+    originalname: `${prefix}-${Date.now()}.${ext}`,
+    buffer: parsed.buffer,
+    mimetype: parsed.mime,
+    size: parsed.buffer.length
+  };
+
+  return uploadImageToS3(fakeFile);
+}
 
 
 // Component Engine untuk event lifecycle (optional)
@@ -17,7 +45,7 @@ try {
     // Load component configuration dari payload yang sedang digunakan
     const componentConfig = {
       tableName: 'app_user',
-      fieldName: ["user_id","employee_code","full_name","email","phone","password_hash","role","department","job_title","is_active","last_login_at","created_at","updated_at"],
+      fieldName: ["user_id","employee_code","full_name","email","phone","password_hash","role","department","job_title","profile_photo","is_active","last_login_at","created_at","updated_at"],
       exportQuery: null,
       columnFormats: null,
       fieldLabels: null,
@@ -52,7 +80,7 @@ try {
  *
  * Endpoints untuk app-user dengan actions: datatables, create, update, delete, first, lookup, read
  * Table: app_user
- * Fields: 13 fields
+ * Fields: 14 fields
  * Database: PostgreSQL
  */
 
@@ -310,6 +338,18 @@ router.post('/create', async (req, res) => {
     // Get correlation ID from header (optional)
     const correlationId = req.headers['x-correlation-id'] || null;
 
+    try {
+      req.body.profile_photo = await uploadDataUrlFieldIfNeeded(req.body.profile_photo, 'profile-photo');
+    } catch (uploadError) {
+      return res.status(500).json({
+        success: false,
+        error: 'Upload failed',
+        message: 'Failed to upload profile photo to storage',
+        details: process.env.NODE_ENV === 'development' ? uploadError.message : undefined,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Validasi data dengan model jika tersedia
     if (typeof appUserModel.validateData === 'function') {
       const validation = await appUserModel.validateData(req.body, 'insert');
@@ -430,6 +470,18 @@ router.post('/update', async (req, res) => {
 
     // Get correlation ID from header (optional)
     const correlationId = req.headers['x-correlation-id'] || null;
+
+    try {
+      req.body.profile_photo = await uploadDataUrlFieldIfNeeded(req.body.profile_photo, 'profile-photo');
+    } catch (uploadError) {
+      return res.status(500).json({
+        success: false,
+        error: 'Upload failed',
+        message: 'Failed to upload profile photo to storage',
+        details: process.env.NODE_ENV === 'development' ? uploadError.message : undefined,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     // Validasi primary key
     const primaryKey = 'user_id';

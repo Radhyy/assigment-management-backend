@@ -141,6 +141,10 @@ async function execute(config) {
       // Body options middleware (extract {data, options} format dari request body)
       app.use('/api', bodyOptionsMiddleware.middleware());
 
+      // Integrasi endpoint IoT IoT
+      const initIotRoutes = require('./facility-helpdesk/iot-server');
+      initIotRoutes(app);
+
       // Auto-load plugin (jika ada)
       const moduleName = 'facility-helpdesk';
       const pluginPath = path.join(__dirname, '..', 'plugins', `${moduleName}-plugin.js`);

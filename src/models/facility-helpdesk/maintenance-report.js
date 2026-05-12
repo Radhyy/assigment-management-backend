@@ -1469,6 +1469,24 @@ class MaintenanceReportModel extends BaseModel {
       
       console.log('[MAINTENANCE-REPORT] INSERT successful, returned rows:', result?.length);
       
+      // Update facility_asset condition_status if applicable
+      if (data.facility_id && data.status) {
+        try {
+          let newStatus = null;
+          if (data.status === 'submitted') newStatus = 'need_repair';
+          if (data.status === 'in_progress') newStatus = 'maintenance';
+          if (data.status === 'approved' || data.status === 'solved' || data.status === 'rejected_by_wom' || data.status === 'rejected') newStatus = 'good';
+          
+          if (newStatus) {
+            const assetUpdateQuery = `UPDATE facility_asset SET condition_status = $1 WHERE facility_id = $2`;
+            await db.executeQuery(assetUpdateQuery, [newStatus, data.facility_id]);
+            console.log(`[MAINTENANCE-REPORT] Automatically updated facility ${data.facility_id} status to ${newStatus}`);
+          }
+        } catch (err) {
+          console.error('[MAINTENANCE-REPORT] Failed to update facility status', err.message);
+        }
+      }
+
       // Return in format BaseModel would
       return result && result.length > 0 ? result[0] : null;
     } catch (error) {
@@ -1544,6 +1562,36 @@ class MaintenanceReportModel extends BaseModel {
 
       const result = await db.executeQuery(updateQuery, values);
       console.log('[MAINTENANCE-REPORT] UPDATE successful, returned rows:', result?.length);
+
+      // Update facility_asset condition_status if applicable based on the updated report status
+      try {
+        // We need to get the facility_id which might be in the data submitted, or we need to fetch it
+        let facilityIdToUpdate = sanitizedData.facility_id;
+        
+        // If facility_id is not in update payload, fetch it from existing record
+        if (!facilityIdToUpdate && recordId) {
+            const fetchAssetIdQuery = `SELECT facility_id FROM ${this.writeSource} WHERE ${primaryKey} = $1`;
+            const fetchResult = await db.executeQuery(fetchAssetIdQuery, [recordId]);
+            if (fetchResult && fetchResult.length > 0) {
+               facilityIdToUpdate = fetchResult[0].facility_id;
+            }
+        }
+
+        if (facilityIdToUpdate && sanitizedData.status) {
+          let newStatus = null;
+          if (sanitizedData.status === 'submitted') newStatus = 'need_repair';
+          else if (sanitizedData.status === 'in_progress') newStatus = 'maintenance';
+          else if (sanitizedData.status === 'approved' || sanitizedData.status === 'solved' || sanitizedData.status === 'rejected_by_wom' || sanitizedData.status === 'rejected') newStatus = 'good';
+          
+          if (newStatus) {
+            const assetUpdateQuery = `UPDATE facility_asset SET condition_status = $1 WHERE facility_id = $2`;
+            await db.executeQuery(assetUpdateQuery, [newStatus, facilityIdToUpdate]);
+            console.log(`[MAINTENANCE-REPORT] Automatically updated facility ${facilityIdToUpdate} status to ${newStatus}`);
+          }
+        }
+      } catch (err) {
+        console.error('[MAINTENANCE-REPORT] Failed to update facility status during update', err.message);
+      }
 
       return result && result.length > 0 ? result[0] : null;
     } catch (error) {

@@ -9,7 +9,7 @@ const path = require('path');
  *
  * Model untuk app-user yang mewarisi fungsi-fungsi dari BaseModel
  * Table: app_user
- * Fields: 13 fields
+ * Fields: 14 fields
  * Database: PostgreSQL
  */
 class AppUserModel extends BaseModel {
@@ -28,6 +28,7 @@ class AppUserModel extends BaseModel {
       'role',
       'department',
       'job_title',
+      'profile_photo',
       'is_active',
       'last_login_at',
       'created_at',
@@ -84,6 +85,13 @@ class AppUserModel extends BaseModel {
             "lowercase": true
       }
       },
+      'profile_photo': {
+        type: 'string',
+        constraints: {
+            "trim": true,
+            "maxLength": 2048
+      }
+      },
       'role': {
         type: 'string',
         constraints: {
@@ -110,7 +118,7 @@ class AppUserModel extends BaseModel {
       moduleName: 'facility-helpdesk',
       tableName: 'app_user',
       viewName: 'app_user',
-      fieldCount: 13,
+      fieldCount: 14,
       databaseType: 'postgres',
       generated: '2026-04-15 01:43:10',
       features: ["custom_where"]
